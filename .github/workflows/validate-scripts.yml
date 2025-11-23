@@ -1,0 +1,44 @@
+name: Validate Scripts
+
+on:
+  push:
+    paths:
+      - 'release.sh'
+      - '**.sh'
+  pull_request:
+    paths:
+      - 'release.sh'
+      - '**.sh'
+  workflow_dispatch:
+
+jobs:
+  shellcheck:
+    name: ShellCheck Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck on release.sh
+        run: |
+          echo "Running ShellCheck on release.sh..."
+          shellcheck -x -S warning release.sh
+          
+      - name: Run ShellCheck on all shell scripts
+        run: |
+          echo "Checking all shell scripts in repository..."
+          find . -name "*.sh" -type f ! -path "*/\.git/*" | while read -r script; do
+            echo "Checking: $script"
+            shellcheck -x -S warning "$script"
+          done
+
+      - name: Validation Success
+        run: |
+          echo "✓ All shell scripts passed ShellCheck validation!"
+
