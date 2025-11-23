@@ -105,13 +105,22 @@ jobs:
           cd $TOOLCHAIN_PATH/kos/utils/dc-chain
           cp Makefile.default.cfg Makefile.cfg
           sed -i '' "s/toolchain_profile=stable/toolchain_profile=${{ steps.version.outputs.gcc_version }}/" Makefile.cfg
-          # Enable Go language support explicitly
-          echo 'sh_gcc_extra_configure_args=--enable-languages=c,c++,go --disable-libgo --disable-libstdcxx-pch' >> Makefile.cfg
-          sed -i '' 's/enable_cpp=1/enable_cpp=1/' Makefile.cfg  # Keep C++ enabled for Go support
-          sed -i '' 's/enable_objc=1/enable_objc=0/' Makefile.cfg
-          sed -i '' 's/enable_objcpp=0/enable_objcpp=0/' Makefile.cfg
           
-          # Show the configuration for debugging
+          # dc-chain doesn't have native Go support, so we need to patch the Makefile
+          # to add Go to the language list. The Makefile constructs languages based on
+          # enable_cpp, enable_objc flags and ignores sh_gcc_extra_configure_args.
+          
+          # Find the line that constructs sh_gcc_langs and patch it to include 'go'
+          # The Makefile builds the language list dynamically, so we patch it directly
+          sed -i '' 's/sh_gcc_langs := c/sh_gcc_langs := c,go/' Makefile
+          
+          # Also need to disable libgo (Go runtime library) as it doesn't work for bare-metal
+          sed -i '' 's/\(--enable-languages=[^[:space:]]*\)/\1 --disable-libgo/' Makefile || true
+          
+          # Show what we're building
+          echo "=== Checking Makefile for Go support ==="
+          grep "sh_gcc_langs" Makefile || true
+          
           echo "=== Makefile.cfg contents ==="
           cat Makefile.cfg
         shell: bash
