@@ -28,7 +28,7 @@ Each release includes:
 
 ## 🚀 Quick Start
 
-### Download and Install
+### Download and Extract
 
 ```bash
 # Download the latest release for your platform
@@ -38,18 +38,10 @@ PLATFORM="linux-x86_64"  # or darwin-arm64
 
 curl -L "https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/gcc${GCC_VERSION}-kos${KOS_VERSION}/dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION}-${PLATFORM}.tar.gz" -o toolchain.tar.gz
 
-# Extract
-tar xzf toolchain.tar.gz
-
-# Set up environment (run this in each new shell session)
-cd sh-elf  # or wherever you extracted
-export PATH="$PWD/sh-elf/bin:$PATH"
-export KOS_BASE="$PWD/kos"
-source $KOS_BASE/environ.sh
-
-# Verify installation
-sh-elf-gcc --version
-sh-elf-gccgo --version
+# Extract to your preferred location
+mkdir -p ~/dreamcast-dev
+tar xzf toolchain.tar.gz -C ~/dreamcast-dev
+cd ~/dreamcast-dev
 ```
 
 ### Verify Checksums
@@ -114,34 +106,75 @@ kos/                           KallistiOS
 
 ## 🎮 Usage
 
-### With godc (Go Development)
+### Option 1: For godc (Go Development)
 
-This toolchain is designed to work seamlessly with [godc](https://github.com/drpaneas/godc), a Go-to-Dreamcast compiler:
+**godc** handles the toolchain setup automatically. No manual environment configuration needed!
 
 ```bash
 # Install godc
 go install github.com/drpaneas/godc/cmd/godc@latest
 
-# godc can automatically download and use these toolchains
-godc setup --auto-download
+# Point godc to the toolchain (one-time setup)
+export DREAMCAST_TOOLCHAIN_PATH=~/dreamcast-dev
+godc setup
+
+# Build your Go program
+cd your-project/
+godc build main.go
 ```
 
-### With KallistiOS (C/C++ Development)
+**That's it!** godc automatically uses the toolchain without needing KOS environment variables.
 
-You can also use this for traditional KallistiOS C/C++ development:
+---
+
+### Option 2: For KallistiOS C/C++ Development
+
+For traditional KallistiOS C development, you need to set up the environment:
 
 ```bash
-# After extraction and environment setup
-cd kos/examples/dreamcast/2ndmix  # Or your own project
+# 1. Set up environment (add to your ~/.bashrc or ~/.zshrc)
+export KOS_BASE=~/dreamcast-dev/kos
+export PATH=~/dreamcast-dev/sh-elf/bin:$PATH
+export PATH=$KOS_BASE/utils/build_wrappers:$PATH
+
+# Source the KOS environment
+source $KOS_BASE/environ.sh
+
+# 2. Verify the setup
+sh-elf-gcc --version
+kos-cc --version
+
+# 3. Build a KallistiOS example
+cd $KOS_BASE/examples/dreamcast/2ndmix
 make
 
-# The package includes utilities you need:
-# - kos-cc wrapper for compilation
-# - genromfs for ROM filesystems
-# - makeip for bootable CD images
+# 4. Or build your own project
+cd your-project/
+make  # Using a KOS-compatible Makefile
 ```
 
-**Note**: The toolchain includes the full KallistiOS kernel source and essential utilities, making it suitable for both Go and C development.
+**KOS Makefile Template** for your projects:
+
+```makefile
+TARGET = myprogram.elf
+OBJS = main.o
+
+all: $(TARGET)
+
+include $(KOS_BASE)/Makefile.rules
+
+clean:
+	-rm -f $(TARGET) $(OBJS)
+
+$(TARGET): $(OBJS)
+	kos-cc -o $(TARGET) $(OBJS)
+```
+
+**Included Utilities:**
+- `kos-cc` - Wrapper for compilation with correct flags
+- `genromfs` - Create ROM filesystems  
+- `makeip` - Create IP.BIN for bootable CDs
+- `scramble` - Scramble binaries for Dreamcast boot
 
 ## 📄 License
 
