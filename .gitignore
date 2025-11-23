@@ -1,0 +1,21 @@
+# Build artifacts
+build/
+
+# Downloaded sources
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+!dreamcast-toolchain-*.tar.gz
+
+# Extracted sources
+binutils-*/
+gcc-*/
+KallistiOS/
+
+# Temporary files
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+
