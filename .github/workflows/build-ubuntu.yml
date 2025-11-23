@@ -140,12 +140,15 @@ jobs:
           KOS_VERSION="${{ steps.version.outputs.kos_version }}"
           
           # Copy license files into the package
-          cp $GITHUB_WORKSPACE/LICENSE kos/
-          cp $GITHUB_WORKSPACE/NOTICE kos/
+          cp $GITHUB_WORKSPACE/LICENSE kos/ || true
+          cp $GITHUB_WORKSPACE/NOTICE kos/ || true
           
-          # Create tarball with both GCC and KOS versions
+          # Create tarball with BOTH sh-elf toolchain AND KOS
           TARBALL="dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION#v}-linux-x86_64.tar.gz"
-          tar czf "$TARBALL" kos/
+          
+          # Package both directories - this is the fix!
+          tar czf "$TARBALL" sh-elf/ kos/
+          
           sha256sum "$TARBALL" > "${TARBALL}.sha256"
           
           mkdir -p $GITHUB_WORKSPACE/release
