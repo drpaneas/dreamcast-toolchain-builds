@@ -230,6 +230,7 @@ jobs:
             kos/utils/genromfs/genromfs \
             kos/utils/makeip/makeip \
             kos/utils/scramble/scramble \
+            kos/environ.sh \
             kos/environ_base.sh \
             kos/environ_dreamcast.sh \
             kos/Makefile.rules \
