@@ -12,11 +12,29 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Workflow file paths
+UBUNTU_WORKFLOW=".github/workflows/build-ubuntu.yml"
+MACOS_WORKFLOW=".github/workflows/build-macos.yml"
+
 # Print colored messages
 info() { echo -e "${BLUE}ℹ${NC} $1"; }
 success() { echo -e "${GREEN}✓${NC} $1"; }
 warning() { echo -e "${YELLOW}⚠${NC} $1"; }
-error() { echo -e "${RED}✗${NC} $1"; exit 1; }
+error() { echo -e "${RED}✗${NC} $1"; restore_backups; exit 1; }
+
+# Restore backup files if they exist
+restore_backups() {
+    if [ -f "${UBUNTU_WORKFLOW}.backup" ] || [ -f "${MACOS_WORKFLOW}.backup" ]; then
+        echo -e "${YELLOW}↺${NC} Restoring backup files..."
+        [ -f "${UBUNTU_WORKFLOW}.backup" ] && mv "${UBUNTU_WORKFLOW}.backup" "$UBUNTU_WORKFLOW"
+        [ -f "${MACOS_WORKFLOW}.backup" ] && mv "${MACOS_WORKFLOW}.backup" "$MACOS_WORKFLOW"
+        rm -f "${UBUNTU_WORKFLOW}.tmp" "${MACOS_WORKFLOW}.tmp"
+        success "  Backups restored"
+    fi
+}
+
+# Cleanup trap for unexpected exits
+trap 'restore_backups' ERR INT TERM
 
 # Banner
 echo ""
@@ -89,9 +107,6 @@ echo ""
 #=============================================================================
 info "Step 2/5: Updating workflow files..."
 
-UBUNTU_WORKFLOW=".github/workflows/build-ubuntu.yml"
-MACOS_WORKFLOW=".github/workflows/build-macos.yml"
-
 if [ ! -f "$UBUNTU_WORKFLOW" ] || [ ! -f "$MACOS_WORKFLOW" ]; then
     error "Workflow files not found. Are you in the repository root?"
 fi
@@ -125,7 +140,7 @@ if command -v yamllint &> /dev/null; then
     if yamllint -d relaxed "$UBUNTU_WORKFLOW" "$MACOS_WORKFLOW"; then
         success "  YAML syntax is valid (yamllint)"
     else
-        error "  YAML validation failed! Restoring backups..."
+        error "  YAML validation failed!"
     fi
 elif command -v python3 &> /dev/null; then
     # Use Python's YAML parser as fallback
@@ -133,7 +148,7 @@ elif command -v python3 &> /dev/null; then
         if python3 -c "import yaml, sys; yaml.safe_load(open('$file'))" 2>/dev/null; then
             success "  $(basename $file) syntax is valid (Python)"
         else
-            error "  YAML validation failed for $file! Restoring backups..."
+            error "  YAML validation failed for $file!"
         fi
     done
 else
@@ -148,11 +163,12 @@ if grep -q "DEFAULT_GCC_VERSION: '${GCC_VERSION}'" "$UBUNTU_WORKFLOW" && \
    grep -q "DEFAULT_KOS_VERSION: '${KOS_VERSION_WITH_V}'" "$MACOS_WORKFLOW"; then
     success "  Version numbers correctly updated in both files"
 else
-    error "  Version update verification failed! Restoring backups..."
+    error "  Version update verification failed!"
 fi
 
-# Remove backups
+# Remove backups after successful validation
 rm -f "${UBUNTU_WORKFLOW}.backup" "${MACOS_WORKFLOW}.backup"
+success "  Backups removed (validation passed)"
 
 echo ""
 
