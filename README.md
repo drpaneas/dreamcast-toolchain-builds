@@ -66,7 +66,7 @@ shasum -a 256 -c toolchain.sha256
 ```
 kos/
 ├── bin/
-│   ├── sh-elf-gcc         C/C++ compiler
+│   ├── sh-elf-gcc         C compiler
 │   ├── sh-elf-gccgo       Go compiler frontend
 │   ├── sh-elf-as          Assembler
 │   ├── sh-elf-ld          Linker
@@ -97,63 +97,6 @@ kos/
 |----------|--------------|--------|
 | Linux | x86_64 | ✅ Supported |
 | macOS | Apple Silicon (ARM64) | ✅ Supported |
-
-## 🔧 Creating a New Release
-
-### Automated Release Script (Recommended)
-
-Use the `release.sh` script to automate the entire release process:
-
-```bash
-# Make script executable (first time only)
-chmod +x release.sh
-
-# Create release with specific versions
-./release.sh 16.0.0 2.3.0
-
-# The script will:
-# 1. Verify both versions exist upstream
-# 2. Update workflow files automatically
-# 3. Validate YAML syntax
-# 4. Commit, tag, and push to GitHub
-# 5. Trigger automated builds
-```
-
-### Manual Release Process
-
-If you prefer to do it manually:
-
-1. Edit `.github/workflows/build-ubuntu.yml` and `.github/workflows/build-macos.yml`
-2. Change `DEFAULT_GCC_VERSION` and `DEFAULT_KOS_VERSION`
-3. Commit: `git commit -am "Release: GCC 16.0.0 + KOS v2.3.0"`
-4. Tag: `git tag gcc16.0.0-kos2.3.0`
-5. Push: `git push && git push origin gcc16.0.0-kos2.3.0`
-
-## 🔧 Building from Source
-
-Don't want to use pre-built binaries? The GitHub Actions workflows in `.github/workflows/` show exactly how the toolchains are built.
-
-The build process:
-1. Downloads the specified [KallistiOS release](https://github.com/KallistiOS/KallistiOS/releases)
-2. Uses KallistiOS's `dc-chain` toolchain builder
-3. Configures for GCC with C and Go support
-4. Builds and packages everything
-
-You can trigger manual builds via GitHub Actions or run the workflows locally.
-
-## 📋 Version Information
-
-Each release is tagged and titled with both GCC and KallistiOS versions:
-- **Tag format:** `gccX.Y.Z-kosX.Y.Z` (e.g., `gcc15.1.0-kos2.2.1`)
-- **Release title:** `Dreamcast Toolchain - GCC X.Y.Z + KallistiOS vX.Y.Z`
-- **Artifact naming:** `dreamcast-toolchain-gccX.Y.Z-kosX.Y.Z-PLATFORM.tar.gz`
-
-The toolchain includes:
-- **GCC**: Version from tag (e.g., 15.1.0)
-- **KallistiOS**: Version from tag (e.g., [v2.2.1](https://github.com/KallistiOS/KallistiOS/releases/tag/v2.2.1))
-- **Binutils**: Latest compatible version from dc-chain
-
-All components are version-locked for reproducible builds.
 
 ## 🎮 Usage with godc
 
@@ -193,13 +136,8 @@ Contributions are welcome! Please feel free to:
 ## 🔗 Related Projects
 
 - [KallistiOS](https://github.com/KallistiOS/KallistiOS) - The Dreamcast operating system
-- [godc](https://github.com/drpaneas/godc) - Go compiler for Dreamcast
+- [godc](https://github.com/drpaneas/godc) - Go version for Dreamcast
 - [GCC](https://gcc.gnu.org/) - The GNU Compiler Collection
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/drpaneas/dreamcast-toolchain-builds/issues)
-- **KallistiOS Community**: [Discord](https://discord.gg/cnKPrwB)
 
 ---
 
