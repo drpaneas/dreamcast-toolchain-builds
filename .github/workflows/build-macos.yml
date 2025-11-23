@@ -216,12 +216,17 @@ jobs:
           
           # Exclude: utils/dc-chain (2.2G), examples (24M), most of kernel source (14M)
           # But include kernel headers which are needed for compilation
+          # and essential KOS utilities for C development
           tar czf "$TARBALL" \
             sh-elf/ \
             kos/lib/ \
             kos/include/ \
-            kos/kernel/arch/dreamcast/include/ \
+            kos/kernel/arch/dreamcast/ \
             kos/utils/build_wrappers/ \
+            --exclude='*.o' --exclude='*.c' --exclude='*.h' \
+            kos/utils/genromfs/genromfs \
+            kos/utils/makeip/makeip \
+            kos/utils/scramble/scramble \
             kos/environ_base.sh \
             kos/environ_dreamcast.sh \
             kos/Makefile.rules \
