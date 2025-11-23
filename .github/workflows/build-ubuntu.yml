@@ -143,11 +143,18 @@ jobs:
           cp $GITHUB_WORKSPACE/LICENSE kos/ || true
           cp $GITHUB_WORKSPACE/NOTICE kos/ || true
           
-          # Create tarball with BOTH sh-elf toolchain AND KOS
+          # Create tarball with BOTH sh-elf toolchain AND KOS (only lib + include)
           TARBALL="dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION#v}-linux-x86_64.tar.gz"
           
-          # Package both directories - this is the fix!
-          tar czf "$TARBALL" sh-elf/ kos/
+          # Package ONLY what's needed: compilers + KOS libraries/headers
+          # Exclude: utils (2.2G), examples (24M), kernel source (14M), docs, addons
+          tar czf "$TARBALL" \
+            sh-elf/ \
+            kos/lib/ \
+            kos/include/ \
+            kos/LICENSE \
+            kos/NOTICE \
+            kos/README.md
           
           sha256sum "$TARBALL" > "${TARBALL}.sha256"
           
