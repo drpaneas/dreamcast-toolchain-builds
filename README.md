@@ -41,11 +41,15 @@ curl -L "https://github.com/drpaneas/dreamcast-toolchain-builds/releases/downloa
 # Extract
 tar xzf toolchain.tar.gz
 
-# Add to PATH
-export PATH="$PWD/kos/bin:$PATH"
+# Set up environment (run this in each new shell session)
+cd sh-elf  # or wherever you extracted
+export PATH="$PWD/sh-elf/bin:$PATH"
+export KOS_BASE="$PWD/kos"
+source $KOS_BASE/environ.sh
 
 # Verify installation
 sh-elf-gcc --version
+sh-elf-gccgo --version
 ```
 
 ### Verify Checksums
@@ -64,31 +68,41 @@ shasum -a 256 -c toolchain.sha256
 ## 📦 What's Included
 
 ```
-kos/
+sh-elf/                        SH-4 Cross-Compiler
 ├── bin/
-│   ├── sh-elf-gcc         C compiler
-│   ├── sh-elf-gccgo       Go compiler frontend
-│   ├── sh-elf-as          Assembler
-│   ├── sh-elf-ld          Linker
-│   ├── sh-elf-ar          Archiver
-│   └── ...                Other utilities
-│
-├── sh-elf/
-│   ├── lib/               GCC runtime libraries
-│   └── include/           GCC headers
-│
-├── kos/
-│   ├── lib/
-│   │   ├── libkallisti.a  KallistiOS kernel
-│   │   ├── libgl.a        PowerVR OpenGL
-│   │   ├── libpng.a       PNG support
-│   │   └── ...            Other libraries
-│   └── include/
-│       ├── kos.h          Main KOS header
-│       └── dc/            Dreamcast-specific headers
-│
-├── LICENSE                License information
-└── NOTICE                 Third-party attributions
+│   ├── sh-elf-gcc             C/C++ compiler
+│   ├── sh-elf-gccgo           Go compiler frontend
+│   ├── sh-elf-as              Assembler
+│   ├── sh-elf-ld              Linker
+│   ├── sh-elf-ar              Archiver
+│   └── ...                    Other binutils
+├── lib/                       GCC runtime libraries
+└── sh-elf/
+    ├── lib/                   Target libraries (libgcc, etc.)
+    └── include/               GCC headers
+
+kos/                           KallistiOS
+├── lib/
+│   ├── libkallisti.a          KallistiOS kernel
+│   ├── libgl.a                PowerVR OpenGL
+│   ├── libpng.a               PNG support
+│   └── ...                    Other libraries
+├── include/
+│   ├── kos.h                  Main KOS header
+│   └── ...                    General headers
+├── kernel/arch/dreamcast/     Dreamcast kernel source
+│   ├── include/dc/            Dreamcast-specific headers
+│   └── ...                    Kernel implementation
+├── utils/
+│   ├── build_wrappers/
+│   │   └── kos-cc             Build wrapper (essential!)
+│   ├── genromfs               ROM filesystem creator
+│   ├── makeip                 IP.BIN creator
+│   └── scramble               Binary scrambler
+├── environ*.sh                Environment setup scripts
+├── Makefile.rules             Build rules
+├── LICENSE                    License information
+└── NOTICE                     Third-party attributions
 ```
 
 ## 🛠️ Supported Platforms
@@ -98,7 +112,9 @@ kos/
 | Linux | x86_64 | ✅ Supported |
 | macOS | Apple Silicon (ARM64) | ✅ Supported |
 
-## 🎮 Usage with godc
+## 🎮 Usage
+
+### With godc (Go Development)
 
 This toolchain is designed to work seamlessly with [godc](https://github.com/drpaneas/godc), a Go-to-Dreamcast compiler:
 
@@ -109,6 +125,23 @@ go install github.com/drpaneas/godc/cmd/godc@latest
 # godc can automatically download and use these toolchains
 godc setup --auto-download
 ```
+
+### With KallistiOS (C/C++ Development)
+
+You can also use this for traditional KallistiOS C/C++ development:
+
+```bash
+# After extraction and environment setup
+cd kos/examples/dreamcast/2ndmix  # Or your own project
+make
+
+# The package includes utilities you need:
+# - kos-cc wrapper for compilation
+# - genromfs for ROM filesystems
+# - makeip for bootable CD images
+```
+
+**Note**: The toolchain includes the full KallistiOS kernel source and essential utilities, making it suitable for both Go and C development.
 
 ## 📄 License
 
