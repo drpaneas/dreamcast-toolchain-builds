@@ -214,11 +214,13 @@ jobs:
             mv kos/lib/dreamcast/* kos/lib/ 2>/dev/null || true
           fi
           
-          # Exclude: utils/dc-chain (2.2G), examples (24M), kernel source (14M)
+          # Exclude: utils/dc-chain (2.2G), examples (24M), most of kernel source (14M)
+          # But include kernel headers which are needed for compilation
           tar czf "$TARBALL" \
             sh-elf/ \
             kos/lib/ \
             kos/include/ \
+            kos/kernel/arch/dreamcast/include/ \
             kos/utils/build_wrappers/ \
             kos/environ_base.sh \
             kos/environ_dreamcast.sh \

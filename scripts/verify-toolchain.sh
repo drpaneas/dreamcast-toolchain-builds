@@ -65,9 +65,9 @@ echo ""
 echo "📄 Checking KallistiOS Headers:"
 check_dir "$TOOLCHAIN_DIR/kos/include" "KOS include directory" || FAILED=1
 check_file "$TOOLCHAIN_DIR/kos/include/kos.h" "kos.h (Main header)" || FAILED=1
-check_dir "$TOOLCHAIN_DIR/kos/include/dc" "dc/ (Dreamcast headers)" || FAILED=1
-check_file "$TOOLCHAIN_DIR/kos/include/dc/pvr.h" "dc/pvr.h (Graphics)" || FAILED=1
-check_file "$TOOLCHAIN_DIR/kos/include/dc/video.h" "dc/video.h (Video)" || FAILED=1
+check_dir "$TOOLCHAIN_DIR/kos/kernel/arch/dreamcast/include/dc" "dc/ (Dreamcast headers)" || FAILED=1
+check_file "$TOOLCHAIN_DIR/kos/kernel/arch/dreamcast/include/dc/pvr.h" "dc/pvr.h (Graphics)" || FAILED=1
+check_file "$TOOLCHAIN_DIR/kos/kernel/arch/dreamcast/include/dc/video.h" "dc/video.h (Video)" || FAILED=1
 echo ""
 
 echo "🔧 Checking KOS Build Wrappers:"
