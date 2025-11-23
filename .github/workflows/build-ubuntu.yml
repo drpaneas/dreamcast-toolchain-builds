@@ -3,7 +3,7 @@ name: Build Ubuntu
 on:
   push:
     tags:
-      - 'kos-gcc-*'
+      - 'gcc*-kos*'
   workflow_dispatch:
     inputs:
       gcc_version:
@@ -33,23 +33,37 @@ jobs:
       - name: Set versions
         id: version
         run: |
-          # GCC Version
-          if [[ "${{ github.event_name }}" == "push" && "$GITHUB_REF_NAME" =~ kos-gcc-([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+          # Extract versions from tag format: gcc15.1.0-kos2.2.1 or gcc15.1.0-kosv2.2.1
+          if [[ "${{ github.event_name }}" == "push" && "$GITHUB_REF_NAME" =~ gcc([0-9]+\.[0-9]+\.[0-9]+)-kos(v?)([0-9]+\.[0-9]+\.[0-9]+) ]]; then
             echo "gcc_version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.gcc_version }}" ]]; then
-            echo "gcc_version=${{ inputs.gcc_version }}" >> $GITHUB_OUTPUT
+            KOS_VER="${BASH_REMATCH[2]}${BASH_REMATCH[3]}"  # Includes 'v' if present
+            # Ensure KOS version has 'v' prefix
+            if [[ ! "$KOS_VER" =~ ^v ]]; then
+              KOS_VER="v${KOS_VER}"
+            fi
+            echo "kos_version=${KOS_VER}" >> $GITHUB_OUTPUT
+            echo "kos_version_short=${BASH_REMATCH[3]}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Manual trigger: use inputs or defaults
+            if [[ -n "${{ inputs.gcc_version }}" ]]; then
+              echo "gcc_version=${{ inputs.gcc_version }}" >> $GITHUB_OUTPUT
+            else
+              echo "gcc_version=${{ env.DEFAULT_GCC_VERSION }}" >> $GITHUB_OUTPUT
+            fi
+            if [[ -n "${{ inputs.kos_version }}" ]]; then
+              KOS_VER="${{ inputs.kos_version }}"
+            else
+              KOS_VER="${{ env.DEFAULT_KOS_VERSION }}"
+            fi
+            echo "kos_version=${KOS_VER}" >> $GITHUB_OUTPUT
+            echo "kos_version_short=${KOS_VER#v}" >> $GITHUB_OUTPUT
           else
+            # Fallback to defaults
             echo "gcc_version=${{ env.DEFAULT_GCC_VERSION }}" >> $GITHUB_OUTPUT
-          fi
-          
-          # KallistiOS Version
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.kos_version }}" ]]; then
-            KOS_VER="${{ inputs.kos_version }}"
-          else
             KOS_VER="${{ env.DEFAULT_KOS_VERSION }}"
+            echo "kos_version=${KOS_VER}" >> $GITHUB_OUTPUT
+            echo "kos_version_short=${KOS_VER#v}" >> $GITHUB_OUTPUT
           fi
-          echo "kos_version=${KOS_VER}" >> $GITHUB_OUTPUT
-          echo "kos_version_short=${KOS_VER#v}" >> $GITHUB_OUTPUT
         shell: bash
 
       # Checkout the repository code

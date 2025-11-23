@@ -36,7 +36,7 @@ GCC_VERSION="15.1.0"
 KOS_VERSION="2.2.1"
 PLATFORM="linux-x86_64"  # or darwin-arm64
 
-curl -L "https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/kos-gcc-${GCC_VERSION}/dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION}-${PLATFORM}.tar.gz" -o toolchain.tar.gz
+curl -L "https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/gcc${GCC_VERSION}-kos${KOS_VERSION}/dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION}-${PLATFORM}.tar.gz" -o toolchain.tar.gz
 
 # Extract
 tar xzf toolchain.tar.gz
@@ -52,7 +52,7 @@ sh-elf-gcc --version
 
 ```bash
 # Download checksum
-curl -L "https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/kos-gcc-${GCC_VERSION}/dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION}-${PLATFORM}.tar.gz.sha256" -o toolchain.sha256
+curl -L "https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/gcc${GCC_VERSION}-kos${KOS_VERSION}/dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION}-${PLATFORM}.tar.gz.sha256" -o toolchain.sha256
 
 # Verify (Linux)
 sha256sum -c toolchain.sha256
