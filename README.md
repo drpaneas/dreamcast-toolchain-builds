@@ -143,9 +143,10 @@ You can trigger manual builds via GitHub Actions or run the workflows locally.
 
 ## 📋 Version Information
 
-Each release is tagged with both GCC and KallistiOS versions:
-- **Tag format:** `gccX.Y.Z-kosX.Y.Z`
-- **Example:** `gcc15.1.0-kos2.2.1`
+Each release is tagged and titled with both GCC and KallistiOS versions:
+- **Tag format:** `gccX.Y.Z-kosX.Y.Z` (e.g., `gcc15.1.0-kos2.2.1`)
+- **Release title:** `Dreamcast Toolchain - GCC X.Y.Z + KallistiOS vX.Y.Z`
+- **Artifact naming:** `dreamcast-toolchain-gccX.Y.Z-kosX.Y.Z-PLATFORM.tar.gz`
 
 The toolchain includes:
 - **GCC**: Version from tag (e.g., 15.1.0)

@@ -153,6 +153,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          name: "Dreamcast Toolchain - GCC ${{ steps.version.outputs.gcc_version }} + KallistiOS ${{ steps.version.outputs.kos_version }}"
           files: |
             release/dreamcast-toolchain-*.tar.gz
             release/dreamcast-toolchain-*.sha256
