@@ -143,12 +143,22 @@ jobs:
           # Create tarball with BOTH sh-elf toolchain AND KOS (only lib + include)
           TARBALL="dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION#v}-darwin-arm64.tar.gz"
           
-          # Package ONLY what's needed: compilers + KOS libraries/headers
-          # Exclude: utils (2.2G), examples (24M), kernel source (14M), docs, addons
+          # Package ONLY what's needed for godc:
+          # - sh-elf/ (compilers and GCC libs)
+          # - kos/lib/ (compiled KOS libraries)
+          # - kos/include/ (KOS headers)
+          # - kos/utils/build_wrappers/ (kos-cc wrapper script)
+          # - kos/environ*.sh (environment setup)
+          # - kos/Makefile.rules (build configuration)
+          # Exclude: utils/dc-chain (2.2G), examples (24M), kernel source (14M)
           tar czf "$TARBALL" \
             sh-elf/ \
             kos/lib/ \
             kos/include/ \
+            kos/utils/build_wrappers/ \
+            kos/environ_base.sh \
+            kos/environ_dreamcast.sh \
+            kos/Makefile.rules \
             kos/LICENSE \
             kos/NOTICE \
             kos/README.md
