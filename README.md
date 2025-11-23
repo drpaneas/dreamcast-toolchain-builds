@@ -1,142 +1,174 @@
 # Dreamcast Toolchain Builds
 
-Pre-built Dreamcast cross-compilation toolchain with GCC Go support and KallistiOS.
+Automated builds of the Dreamcast cross-compilation toolchain with GCC Go support and KallistiOS.
 
-## What This Provides
+This repository provides **pre-built**, **version-locked** toolchains for Dreamcast development, eliminating the need to compile GCC and KallistiOS yourself.
 
-Complete development environment for Dreamcast:
-- **sh-elf-gccgo** - GCC 15.2.0 with Go frontend
-- **sh-elf-gcc** - C/C++ compiler
-- **Toolchain utilities** - as, ld, ar, objcopy, etc.
-- **KallistiOS libraries** - libkallisti.a, libgl.a, etc.
-- **KOS headers** - Complete include files
+## 🎯 What This Provides
 
-All version-locked and tested together!
+Complete development environment for Sega Dreamcast:
+- **GCC with Go support** - Cross-compiler with gccgo frontend for SH-4
+- **C compiler** - Full C language support  
+- **KallistiOS** - Complete operating system and libraries
+- **Binutils** - Assembler, linker, and binary utilities
+- **All pre-built and tested together!**
 
-## Supported Platforms
+## 📥 Downloads
+
+**[View All Releases →](https://github.com/drpaneas/dreamcast-toolchain-builds/releases)**
+
+Pre-built binaries are available for:
+- **Linux** x86_64
+- **macOS** Apple Silicon (ARM64)
+
+Each release includes:
+- Toolchain tarball (`.tar.gz`)
+- SHA-256 checksum for verification
+- LICENSE and NOTICE files
+
+## 🚀 Quick Start
+
+### Download and Install
+
+```bash
+# Download the latest release for your platform
+GCC_VERSION="15.1.0"
+KOS_VERSION="2.2.1"
+PLATFORM="linux-x86_64"  # or darwin-arm64
+
+curl -L "https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/kos-gcc-${GCC_VERSION}/dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION}-${PLATFORM}.tar.gz" -o toolchain.tar.gz
+
+# Extract
+tar xzf toolchain.tar.gz
+
+# Add to PATH
+export PATH="$PWD/kos/bin:$PATH"
+
+# Verify installation
+sh-elf-gcc --version
+```
+
+### Verify Checksums
+
+```bash
+# Download checksum
+curl -L "https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/kos-gcc-${GCC_VERSION}/dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION}-${PLATFORM}.tar.gz.sha256" -o toolchain.sha256
+
+# Verify (Linux)
+sha256sum -c toolchain.sha256
+
+# Verify (macOS)
+shasum -a 256 -c toolchain.sha256
+```
+
+## 📦 What's Included
+
+```
+kos/
+├── bin/
+│   ├── sh-elf-gcc         C/C++ compiler
+│   ├── sh-elf-gccgo       Go compiler frontend
+│   ├── sh-elf-as          Assembler
+│   ├── sh-elf-ld          Linker
+│   ├── sh-elf-ar          Archiver
+│   └── ...                Other utilities
+│
+├── sh-elf/
+│   ├── lib/               GCC runtime libraries
+│   └── include/           GCC headers
+│
+├── kos/
+│   ├── lib/
+│   │   ├── libkallisti.a  KallistiOS kernel
+│   │   ├── libgl.a        PowerVR OpenGL
+│   │   ├── libpng.a       PNG support
+│   │   └── ...            Other libraries
+│   └── include/
+│       ├── kos.h          Main KOS header
+│       └── dc/            Dreamcast-specific headers
+│
+├── LICENSE                License information
+└── NOTICE                 Third-party attributions
+```
+
+## 🛠️ Supported Platforms
 
 | Platform | Architecture | Status |
 |----------|--------------|--------|
-| macOS | Apple Silicon (ARM64) | ✅ Supported |
-| macOS | Intel (x86_64) | ✅ Supported |
 | Linux | x86_64 | ✅ Supported |
-| Linux | ARM64 | 📅 Planned |
-| Windows | x86_64 | 📅 Planned |
+| macOS | Apple Silicon (ARM64) | ✅ Supported |
 
-## Downloads
+## 🔧 Building from Source
 
-See [Releases](https://github.com/drpaneas/dreamcast-toolchain-builds/releases) for downloads.
+Don't want to use pre-built binaries? The GitHub Actions workflows in `.github/workflows/` show exactly how the toolchains are built.
 
-### Latest: v2.0.0
+The build process:
+1. Downloads the latest [KallistiOS release](https://github.com/KallistiOS/KallistiOS/releases/latest)
+2. Uses KallistiOS's `dc-chain` toolchain builder
+3. Configures for GCC with C and Go support
+4. Builds and packages everything
 
-- GCC: 15.2.0 (with gccgo frontend)
-- KallistiOS: 2.0.0
-- Built: 2024-11-23
+You can trigger manual builds via GitHub Actions or run the workflows locally.
 
-**Downloads**:
-- [macOS Apple Silicon](https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/v2.0.0/dreamcast-toolchain-v2.0.0-darwin-arm64.tar.gz) (187 MB)
-- [macOS Intel](https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/v2.0.0/dreamcast-toolchain-v2.0.0-darwin-x86_64.tar.gz) (191 MB)
-- [Linux x86_64](https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/v2.0.0/dreamcast-toolchain-v2.0.0-linux-x86_64.tar.gz) (183 MB)
+## 📋 Version Information
 
-## Installation
+Each release is tagged with the GCC version it contains:
+- Tag format: `kos-gcc-X.Y.Z`
+- Example: `kos-gcc-15.1.0`
 
-### Automated (Recommended)
+The toolchain includes:
+- **GCC**: Version from tag (e.g., 15.1.0)
+- **KallistiOS**: Latest stable release at build time (e.g., [v2.2.1](https://github.com/KallistiOS/KallistiOS/releases/tag/v2.2.1))
+- **Binutils**: Latest compatible version from dc-chain
+
+All components are version-locked for reproducible builds.
+
+## 🎮 Usage with godc
+
+This toolchain is designed to work seamlessly with [godc](https://github.com/drpaneas/godc), a Go-to-Dreamcast compiler:
 
 ```bash
-curl -sSf https://godc.dev/install-toolchain.sh | sh
-```
+# Install godc
+go install github.com/drpaneas/godc/cmd/godc@latest
 
-Or with godc tool:
-```bash
+# godc can automatically download and use these toolchains
 godc setup --auto-download
 ```
 
-### Manual
+## 📄 License
 
-```bash
-# Download for your platform
-curl -L https://github.com/drpaneas/dreamcast-toolchain-builds/releases/download/v2.0.0/dreamcast-toolchain-v2.0.0-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).tar.gz -o toolchain.tar.gz
+This project distributes several components with different licenses:
 
-# Extract
-mkdir -p ~/.dreamcast
-tar xzf toolchain.tar.gz -C ~/.dreamcast
+- **GCC & Binutils**: GNU General Public License v3 (GPLv3)
+- **KallistiOS**: BSD-style License
+- **Build scripts & workflows**: MIT License
 
-# Add to PATH
-echo 'export PATH="$HOME/.dreamcast/dreamcast-toolchain/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
+**Source code availability** (GPL compliance):
+- GCC source: https://ftp.gnu.org/gnu/gcc/
+- Binutils source: https://ftp.gnu.org/gnu/binutils/
+- KallistiOS source: https://github.com/KallistiOS/KallistiOS
+- Build workflows: This repository
 
-# Verify
-sh-elf-gccgo --version
-```
+See [LICENSE](LICENSE) and [NOTICE](NOTICE) files for complete details.
 
-## What's Included
+## 🤝 Contributing
 
-```
-dreamcast-toolchain/
-├── bin/
-│   ├── sh-elf-gccgo      Cross-compiler with Go support
-│   ├── sh-elf-gcc        C/C++ compiler
-│   ├── sh-elf-as         Assembler
-│   ├── sh-elf-ld         Linker
-│   ├── sh-elf-ar         Archiver
-│   ├── sh-elf-objcopy    Object file converter
-│   ├── sh-elf-objdump    Object file dumper
-│   └── kos-cc            KallistiOS wrapper
-│
-├── sh-elf/
-│   ├── lib/              GCC runtime libraries for SH-4
-│   └── include/          GCC headers
-│
-└── kos/
-    ├── lib/
-    │   ├── libkallisti.a KOS kernel
-    │   ├── libgl.a       PowerVR OpenGL
-    │   ├── libpng.a      PNG library
-    │   ├── libjpeg.a     JPEG library
-    │   └── libz.a        Compression
-    └── include/
-        ├── kos.h         Main KOS header
-        ├── dc/           Dreamcast-specific
-        └── arch/         Architecture files
-```
+Contributions are welcome! Please feel free to:
+- Report issues
+- Suggest improvements
+- Submit pull requests
 
-## Verifying Installation
+## 🔗 Related Projects
 
-```bash
-# Check compiler
-sh-elf-gccgo --version
-# Should show: sh-elf-gccgo (GCC) 15.2.0
+- [KallistiOS](https://github.com/KallistiOS/KallistiOS) - The Dreamcast operating system
+- [godc](https://github.com/drpaneas/godc) - Go compiler for Dreamcast
+- [GCC](https://gcc.gnu.org/) - The GNU Compiler Collection
 
-# Check KOS
-ls $HOME/.dreamcast/dreamcast-toolchain/kos/lib/
-# Should show: libkallisti.a libgl.a ...
+## 📞 Support
 
-# Build test program
-cd /path/to/godc/examples/hello
-godc build main.go
-# Should succeed!
-```
+- **Issues**: [GitHub Issues](https://github.com/drpaneas/dreamcast-toolchain-builds/issues)
+- **KallistiOS Community**: [Discord](https://discord.gg/cnKPrwB)
 
-## Building from Source
+---
 
-See [docs/BUILD.md](docs/BUILD.md) for building the toolchain yourself.
-
-## Compatibility
-
-| godc Version | Recommended Toolchain | Status |
-|--------------|----------------------|--------|
-| v0.2.x | v2.0.0 | ✅ Tested |
-| v0.3.x | v2.1.0 | 📅 Future |
-
-## License
-
-- GCC: GPL v3
-- KallistiOS: BSD-style
-- Build scripts: MIT
-
-See LICENSE file for details.
-
-## Issues
-
-Report issues at: https://github.com/drpaneas/dreamcast-toolchain-builds/issues
-
+**Note**: This is an automated build repository. The actual toolchain components are developed and maintained by their respective upstream projects (GCC, KallistiOS, etc.). This repository simply provides convenient pre-built packages.

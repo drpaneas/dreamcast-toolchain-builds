@@ -1,0 +1,183 @@
+name: Build macOS
+
+on:
+  push:
+    tags:
+      - 'kos-gcc-*'
+  workflow_dispatch:
+    inputs:
+      gcc_version:
+        description: 'GCC version (e.g., 15.1.0) - Leave empty to use default'
+        required: false
+        type: string
+      kos_version:
+        description: 'KallistiOS version tag (e.g., v2.2.1) - Leave empty to use default'
+        required: false
+        type: string
+
+# Configuration: Edit these to change default versions
+env:
+  DEFAULT_GCC_VERSION: '15.1.0'
+  DEFAULT_KOS_VERSION: 'v2.2.1'
+
+jobs:
+  build-macos:
+    name: Build on macOS ARM64
+    runs-on: macos-15  # macOS with Apple Silicon (ARM64)
+
+    env:
+      TOOLCHAIN_PATH: /opt/toolchains/dc
+
+    steps:
+      # Determine versions from tag, input, or defaults
+      - name: Set versions
+        id: version
+        run: |
+          # GCC Version
+          if [[ "${{ github.event_name }}" == "push" && "$GITHUB_REF_NAME" =~ kos-gcc-([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            echo "gcc_version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.gcc_version }}" ]]; then
+            echo "gcc_version=${{ inputs.gcc_version }}" >> $GITHUB_OUTPUT
+          else
+            echo "gcc_version=${{ env.DEFAULT_GCC_VERSION }}" >> $GITHUB_OUTPUT
+          fi
+          
+          # KallistiOS Version
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.kos_version }}" ]]; then
+            KOS_VER="${{ inputs.kos_version }}"
+          else
+            KOS_VER="${{ env.DEFAULT_KOS_VERSION }}"
+          fi
+          echo "kos_version=${KOS_VER}" >> $GITHUB_OUTPUT
+          echo "kos_version_short=${KOS_VER#v}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      # Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Install dependencies on macOS
+      - name: Set up dependencies on macOS
+        run: |
+          brew install texinfo libelf meson libisofs
+        shell: bash
+
+      # Create the toolchain directory and download KallistiOS
+      - name: Create toolchain directory and download KallistiOS
+        run: |
+          sudo mkdir -p $TOOLCHAIN_PATH
+          sudo chmod -R 755 $TOOLCHAIN_PATH
+          sudo chown -R $(id -u):$(id -g) $TOOLCHAIN_PATH
+          cd $TOOLCHAIN_PATH
+          
+          # Use the specified KallistiOS version
+          KOS_VERSION="${{ steps.version.outputs.kos_version }}"
+          echo "Downloading KallistiOS ${KOS_VERSION}..."
+          
+          # Download and extract the release tarball
+          curl -L "https://github.com/KallistiOS/KallistiOS/archive/refs/tags/${KOS_VERSION}.tar.gz" -o kos.tar.gz
+          tar xzf kos.tar.gz
+          mv KallistiOS-${KOS_VERSION#v} kos
+          rm kos.tar.gz
+          
+          echo "KallistiOS ${KOS_VERSION} downloaded and extracted"
+        shell: bash
+
+      # Configure the toolchain on macOS
+      - name: Configure the toolchain on macOS
+        run: |
+          cd $TOOLCHAIN_PATH/kos/utils/dc-chain
+          cp Makefile.default.cfg Makefile.cfg
+          sed -i '' "s/toolchain_profile=stable/toolchain_profile=${{ steps.version.outputs.gcc_version }}/" Makefile.cfg
+          echo 'sh_gcc_extra_configure_args=--enable-languages=c,go --disable-libgo' >> Makefile.cfg
+          sed -i '' 's/enable_cpp=1/enable_cpp=0/' Makefile.cfg
+          sed -i '' 's/enable_objc=1/enable_objc=0/' Makefile.cfg
+          sed -i '' 's/enable_objcpp=0/enable_objcpp=1/' Makefile.cfg
+        shell: bash
+
+      # Build the SH4 toolchain
+      - name: Build SH4 Toolchain
+        run: |
+          cd $TOOLCHAIN_PATH/kos/utils/dc-chain
+          make
+        shell: bash
+
+      # Set up KOS environment and build KOS
+      - name: Set up KOS environment and build
+        run: |
+          cd $TOOLCHAIN_PATH/kos
+          cp doc/environ.sh.sample environ.sh
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          export LIBRARY_PATH="$(brew --prefix)/lib"
+          export CPATH="$(brew --prefix)/include"
+          make
+        shell: bash
+
+      # Package the toolchain
+      - name: Package toolchain
+        run: |
+          cd $TOOLCHAIN_PATH
+          GCC_VERSION="${{ steps.version.outputs.gcc_version }}"
+          KOS_VERSION="${{ steps.version.outputs.kos_version }}"
+          
+          # Copy license files into the package
+          cp $GITHUB_WORKSPACE/LICENSE kos/
+          cp $GITHUB_WORKSPACE/NOTICE kos/
+          
+          # Create tarball with both GCC and KOS versions (ARM64 only)
+          TARBALL="dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION#v}-darwin-arm64.tar.gz"
+          tar czf "$TARBALL" kos/
+          shasum -a 256 "$TARBALL" > "${TARBALL}.sha256"
+          
+          mkdir -p $GITHUB_WORKSPACE/release
+          mv "$TARBALL" "$GITHUB_WORKSPACE/release/"
+          mv "${TARBALL}.sha256" "$GITHUB_WORKSPACE/release/"
+        shell: bash
+
+      # Upload Release Asset
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/dreamcast-toolchain-*.tar.gz
+            release/dreamcast-toolchain-*.sha256
+          body: |
+            ## Dreamcast Toolchain - GCC ${{ steps.version.outputs.gcc_version }}
+            
+            Pre-built cross-compilation toolchain for Sega Dreamcast development.
+            
+            ### Included Components
+            - **GCC**: ${{ steps.version.outputs.gcc_version }} with C and Go support
+            - **KallistiOS**: ${{ steps.version.outputs.kos_version }} ([release](https://github.com/KallistiOS/KallistiOS/releases/tag/${{ steps.version.outputs.kos_version }}))
+            - **Binutils**: Latest compatible version from dc-chain
+            
+            ### Installation
+            ```bash
+            # Extract the tarball
+            tar xzf dreamcast-toolchain-gcc${{ steps.version.outputs.gcc_version }}-kos${{ steps.version.outputs.kos_version_short }}-darwin-arm64.tar.gz
+            export PATH="$PWD/kos/bin:$PATH"
+            sh-elf-gcc --version
+            ```
+            
+            ### License Information
+            This distribution includes GPL v3 (GCC, Binutils) and BSD-licensed (KallistiOS) components.
+            
+            **Source Code** (GPL compliance):
+            - GCC: https://ftp.gnu.org/gnu/gcc/gcc-${{ steps.version.outputs.gcc_version }}/
+            - KallistiOS: https://github.com/KallistiOS/KallistiOS
+            - Build scripts: This repository
+            
+            See LICENSE and NOTICE files included in the distribution for complete details.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload Build Artifacts
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreamcast-toolchain-darwin-arm64
+          path: |
+            release/dreamcast-toolchain-*.tar.gz
+            release/dreamcast-toolchain-*.sha256
+          retention-days: 30

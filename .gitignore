@@ -1,21 +1,33 @@
 # Build artifacts
 build/
-
-# Downloaded sources
+release/
 *.tar.gz
-*.tar.bz2
-*.tar.xz
-!dreamcast-toolchain-*.tar.gz
-
-# Extracted sources
-binutils-*/
-gcc-*/
-KallistiOS/
+*.sha256
 
 # Temporary files
-*.log
 *.tmp
+*.log
 
-# OS files
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
+# Linux
+*~
+.directory
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.iml
+
+# Test directories
+/tmp/
+/test/
+
+# Qodo/Cursor
+.qodo/
