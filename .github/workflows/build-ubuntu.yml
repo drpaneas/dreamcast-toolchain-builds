@@ -108,10 +108,15 @@ jobs:
           cd $TOOLCHAIN_PATH/kos/utils/dc-chain
           cp Makefile.default.cfg Makefile.cfg
           sed -i "s/toolchain_profile=stable/toolchain_profile=${{ steps.version.outputs.gcc_version }}/" Makefile.cfg
-          echo 'sh_gcc_extra_configure_args=--enable-languages=c,go --disable-libgo' >> Makefile.cfg
-          sed -i 's/enable_cpp=1/enable_cpp=0/' Makefile.cfg
+          # Enable Go language support explicitly
+          echo 'sh_gcc_extra_configure_args=--enable-languages=c,c++,go --disable-libgo --disable-libstdcxx-pch' >> Makefile.cfg
+          sed -i 's/enable_cpp=1/enable_cpp=1/' Makefile.cfg  # Keep C++ enabled for Go support
           sed -i 's/enable_objc=1/enable_objc=0/' Makefile.cfg
-          sed -i 's/enable_objcpp=0/enable_objcpp=1/' Makefile.cfg
+          sed -i 's/enable_objcpp=0/enable_objcpp=0/' Makefile.cfg
+          
+          # Show the configuration for debugging
+          echo "=== Makefile.cfg contents ==="
+          cat Makefile.cfg
         shell: bash
 
       # Build the SH4 toolchain
@@ -137,6 +142,16 @@ jobs:
               sleep 30
             fi
           done
+          
+          # Verify Go compiler was built
+          echo "Verifying toolchain build..."
+          if [ ! -f "$TOOLCHAIN_PATH/sh-elf/bin/sh-elf-gccgo" ]; then
+            echo "ERROR: sh-elf-gccgo not found! Go support was not built."
+            echo "Checking what was built:"
+            ls -la $TOOLCHAIN_PATH/sh-elf/bin/
+            exit 1
+          fi
+          echo "✅ sh-elf-gccgo found"
         shell: bash
 
       # Set up KOS environment and build KOS
@@ -147,7 +162,20 @@ jobs:
           source $TOOLCHAIN_PATH/kos/environ.sh
           export LIBRARY_PATH="/usr/local/lib"
           export CPATH="/usr/local/include"
-          make
+          
+          # Build KOS with error checking
+          echo "Building KallistiOS..."
+          if ! make; then
+            echo "KOS build failed!"
+            exit 1
+          fi
+          
+          # Verify critical files exist
+          echo "Verifying KOS build..."
+          if [ ! -f "$TOOLCHAIN_PATH/kos/lib/dreamcast/libkallisti.a" ]; then
+            echo "ERROR: libkallisti.a not found after build!"
+            exit 1
+          fi
         shell: bash
 
       # Package the toolchain
@@ -171,6 +199,15 @@ jobs:
           # - kos/utils/build_wrappers/ (kos-cc wrapper script)
           # - kos/environ*.sh (environment setup)
           # - kos/Makefile.rules (build configuration)
+          
+          # First, check where libraries are located
+          echo "Checking library locations..."
+          if [ -d "kos/lib/dreamcast" ]; then
+            echo "Libraries found in kos/lib/dreamcast/"
+            # Move dreamcast libraries to kos/lib for consistent packaging
+            mv kos/lib/dreamcast/* kos/lib/ 2>/dev/null || true
+          fi
+          
           # Exclude: utils/dc-chain (2.2G), examples (24M), kernel source (14M)
           tar czf "$TARBALL" \
             sh-elf/ \
