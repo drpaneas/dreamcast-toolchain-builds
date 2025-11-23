@@ -118,7 +118,25 @@ jobs:
       - name: Build SH4 Toolchain
         run: |
           cd $TOOLCHAIN_PATH/kos/utils/dc-chain
-          make
+          
+          # Patch the Makefile to use a more reliable mirror and add retry logic
+          # Replace ftpmirror.gnu.org with ftp.gnu.org (more stable)
+          sed -i 's|ftpmirror\.gnu\.org|ftp.gnu.org|g' Makefile
+          
+          # Add retry logic for downloads
+          export CURL_OPTS="--retry 5 --retry-delay 10 --retry-max-time 300"
+          
+          # Try to build with retries
+          for i in 1 2 3; do
+            echo "Attempt $i of 3..."
+            if make; then
+              echo "Build successful!"
+              break
+            else
+              echo "Build failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
         shell: bash
 
       # Set up KOS environment and build KOS
