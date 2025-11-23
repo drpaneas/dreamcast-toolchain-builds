@@ -24,6 +24,8 @@ jobs:
   build-macos:
     name: Build on macOS ARM64
     runs-on: macos-15  # macOS with Apple Silicon (ARM64)
+    permissions:
+      contents: write  # Required to create releases and upload assets
 
     env:
       TOOLCHAIN_PATH: /opt/toolchains/dc
