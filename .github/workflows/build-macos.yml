@@ -170,6 +170,32 @@ jobs:
           mv "${TARBALL}.sha256" "$GITHUB_WORKSPACE/release/"
         shell: bash
 
+      # Verify the package before uploading
+      - name: Verify toolchain package
+        run: |
+          cd $GITHUB_WORKSPACE/release
+          
+          # Extract to temp location for verification
+          mkdir -p /tmp/verify-toolchain
+          tar xzf dreamcast-toolchain-*.tar.gz -C /tmp/verify-toolchain
+          
+          # Run verification script
+          echo "🔍 Running verification on packaged toolchain..."
+          chmod +x $GITHUB_WORKSPACE/scripts/verify-toolchain.sh
+          $GITHUB_WORKSPACE/scripts/verify-toolchain.sh /tmp/verify-toolchain
+          
+          echo ""
+          echo "🧪 Running smoke test..."
+          chmod +x $GITHUB_WORKSPACE/scripts/smoke-test.sh
+          $GITHUB_WORKSPACE/scripts/smoke-test.sh /tmp/verify-toolchain
+          
+          # Cleanup
+          rm -rf /tmp/verify-toolchain
+          
+          echo ""
+          echo "✅ All verification tests PASSED - Safe to release!"
+        shell: bash
+
       # Upload Release Asset
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
