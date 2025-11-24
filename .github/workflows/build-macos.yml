@@ -252,10 +252,16 @@ jobs:
           # But include kernel headers which are needed for compilation
           # and essential KOS utilities for C development
           # BSD tar (macOS) uses --exclude PATTERN (no =)
+          # Only exclude .o/.c files from utilities, not headers which are needed
           tar czf "$TARBALL" \
-            --exclude '*.o' \
-            --exclude '*.c' \
-            --exclude '*.h' \
+            --exclude 'kos/utils/genromfs/*.o' \
+            --exclude 'kos/utils/genromfs/*.c' \
+            --exclude 'kos/utils/makeip/*.o' \
+            --exclude 'kos/utils/makeip/*.c' \
+            --exclude 'kos/utils/scramble/*.o' \
+            --exclude 'kos/utils/scramble/*.c' \
+            --exclude 'kos/kernel/arch/dreamcast/*.o' \
+            --exclude 'kos/kernel/arch/dreamcast/*.c' \
             sh-elf/ \
             kos/lib/ \
             kos/include/ \
