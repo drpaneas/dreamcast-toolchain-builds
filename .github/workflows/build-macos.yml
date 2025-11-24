@@ -75,7 +75,8 @@ jobs:
       # Install dependencies on macOS
       - name: Set up dependencies on macOS
         run: |
-          brew install texinfo libelf meson libisofs
+          # Install all required dependencies from KallistiOS documentation
+          brew install wget gettext texinfo gmp mpfr libmpc libelf jpeg-turbo libpng cmake meson libisofs
         shell: bash
 
       # Create the toolchain directory and download KallistiOS
@@ -109,25 +110,25 @@ jobs:
           # Enable Go language support in Makefile.cfg
           echo 'enable_go=1' >> Makefile.cfg
           
-          # Keep C++ enabled on macOS (libffi requires it)
-          # Disable Objective-C to keep build simpler
+          # Disable C++ and Objective-C to keep build minimal (only C and Go)
+          sed -i '' 's/enable_cpp=1/enable_cpp=0/' Makefile.cfg
           sed -i '' 's/enable_objc=1/enable_objc=0/' Makefile.cfg
           sed -i '' 's/enable_objcpp=1/enable_objcpp=0/' Makefile.cfg
           
           # Patch scripts/init.mk to disable libgo when Go is enabled
           # libgo (Go runtime) doesn't work for bare-metal Dreamcast
-          # Find the line number of "ifdef enable_go" and add --disable-libgo 3 lines after
+          # Also disable libffi which causes C++ preprocessor issues on macOS
           LINE_NUM=$(grep -n "ifdef enable_go" scripts/init.mk | cut -d: -f1)
           TARGET_LINE=$((LINE_NUM + 3))
           
           # Check if line contains gcc_pass2 (verify we're at the right place)
           if sed -n "${TARGET_LINE}p" scripts/init.mk | grep -q "gcc_pass2"; then
             echo "Found existing gcc_pass2 line at ${TARGET_LINE}, replacing it"
-            sed -i '' "${TARGET_LINE}s/.*/    gcc_pass2_configure_args += --disable-libgo/" scripts/init.mk
+            sed -i '' "${TARGET_LINE}s/.*/    gcc_pass2_configure_args += --disable-libgo --disable-libffi/" scripts/init.mk
           else
             echo "Line ${TARGET_LINE} doesn't contain gcc_pass2, inserting after pass2_languages line"
             # Use awk as fallback since sed append syntax is tricky in YAML
-            awk '/pass2_languages := \$\(pass2_languages\),go/ {print; print "    gcc_pass2_configure_args += --disable-libgo"; next} 1' scripts/init.mk > scripts/init.mk.tmp && mv scripts/init.mk.tmp scripts/init.mk
+            awk '/pass2_languages := \$\(pass2_languages\),go/ {print; print "    gcc_pass2_configure_args += --disable-libgo --disable-libffi"; next} 1' scripts/init.mk > scripts/init.mk.tmp && mv scripts/init.mk.tmp scripts/init.mk
           fi
           
           # Show what we're building
@@ -155,17 +156,23 @@ jobs:
           # Add retry logic for downloads
           export CURL_OPTS="--retry 5 --retry-delay 10 --retry-max-time 300"
           
-          # Try to build with retries
-          for i in 1 2 3; do
-            echo "Attempt $i of 3..."
-            if make; then
-              echo "Build successful!"
-              break
-            else
-              echo "Build failed, retrying in 30 seconds..."
-              sleep 30
-            fi
-          done
+          # Debug: Show preprocessor configuration
+          echo "=== CPP diagnostics ==="
+          which cpp || echo "cpp not found"
+          ls -l /lib/cpp || echo "/lib/cpp missing (expected on macOS)"
+          echo "CC=$CC"
+          echo "CXX=$CXX"
+          echo "CPP=$CPP"
+          echo "CXXCPP=$CXXCPP"
+          echo "CPATH=$CPATH"
+          echo "LIBRARY_PATH=$LIBRARY_PATH"
+          
+          # Try to build
+          if ! make; then
+            echo "Build failed!"
+            exit 1
+          fi
+          echo "Build successful!"
           
           # Verify Go compiler was built
           echo "Verifying toolchain build..."
@@ -290,6 +297,15 @@ jobs:
           echo ""
           echo "✅ All verification tests PASSED - Safe to release!"
         shell: bash
+
+      # Upload libffi config.log on failure for debugging
+      - name: Upload libffi config.log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: libffi-config-log-macos
+          path: /opt/toolchains/dc/kos/utils/dc-chain/build-gcc-sh-elf-*/sh-elf/libffi/config.log
+          if-no-files-found: ignore
 
       # Upload Release Asset
       - name: Upload Release Asset
