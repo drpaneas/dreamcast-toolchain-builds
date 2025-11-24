@@ -109,19 +109,19 @@ jobs:
           cp Makefile.default.cfg Makefile.cfg
           sed -i "s/toolchain_profile=stable/toolchain_profile=${{ steps.version.outputs.gcc_version }}/" Makefile.cfg
           
-          # Enable Go language support
-          # dc-chain uses enable_go flag in Makefile.cfg to add Go to pass2_languages
+          # Enable Go language support in Makefile.cfg
           echo 'enable_go=1' >> Makefile.cfg
           
-          # Disable libgo (Go runtime library) as it doesn't work for bare-metal
-          echo 'sh_gcc_extra_configure_args=--disable-libgo' >> Makefile.cfg
+          # Patch scripts/init.mk to disable libgo when Go is enabled
+          # libgo (Go runtime) doesn't work for bare-metal Dreamcast
+          sed -i '/pass2_languages := $(pass2_languages),go/a\    gcc_pass2_configure_args += --disable-libgo' scripts/init.mk
           
           # Show what we're building
           echo "=== Makefile.cfg contents ==="
           cat Makefile.cfg
           
           echo "=== Checking init.mk for Go configuration ==="
-          grep -A3 "enable_go" $TOOLCHAIN_PATH/kos/utils/dc-chain/scripts/init.mk || true
+          grep -A5 "enable_go" scripts/init.mk
         shell: bash
 
       # Build the SH4 toolchain
