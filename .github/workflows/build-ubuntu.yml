@@ -157,6 +157,11 @@ jobs:
             exit 1
           fi
           echo "✅ sh-elf-gccgo found"
+          
+          # Clean up dc-chain build artifacts to save space
+          echo "Cleaning up dc-chain build artifacts..."
+          make clean distclean
+          echo "✅ dc-chain cleaned"
         shell: bash
 
       # Set up KOS environment and build KOS
