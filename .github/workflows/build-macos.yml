@@ -116,8 +116,19 @@ jobs:
           
           # Patch scripts/init.mk to disable libgo when Go is enabled
           # libgo (Go runtime) doesn't work for bare-metal Dreamcast
-          # The line has leading spaces, so we need to match with [[:space:]]*
-          awk '/^[[:space:]]*pass2_languages := \$\(pass2_languages\),go/ {print; print "    gcc_pass2_configure_args += --disable-libgo"; next} 1' scripts/init.mk > scripts/init.mk.tmp && mv scripts/init.mk.tmp scripts/init.mk
+          # Find the line number of "ifdef enable_go" and add --disable-libgo 3 lines after
+          LINE_NUM=$(grep -n "ifdef enable_go" scripts/init.mk | cut -d: -f1)
+          TARGET_LINE=$((LINE_NUM + 3))
+          
+          # Check if line contains gcc_pass2 (verify we're at the right place)
+          if sed -n "${TARGET_LINE}p" scripts/init.mk | grep -q "gcc_pass2"; then
+            echo "Found existing gcc_pass2 line at ${TARGET_LINE}, replacing it"
+            sed -i '' "${TARGET_LINE}s/.*/    gcc_pass2_configure_args += --disable-libgo/" scripts/init.mk
+          else
+            echo "Line ${TARGET_LINE} doesn't contain gcc_pass2, inserting after pass2_languages line"
+            # Use awk as fallback since sed append syntax is tricky in YAML
+            awk '/pass2_languages := \$\(pass2_languages\),go/ {print; print "    gcc_pass2_configure_args += --disable-libgo"; next} 1' scripts/init.mk > scripts/init.mk.tmp && mv scripts/init.mk.tmp scripts/init.mk
+          fi
           
           # Show what we're building
           echo "=== Makefile.cfg contents ==="
