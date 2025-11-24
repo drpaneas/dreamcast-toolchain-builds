@@ -149,6 +149,10 @@ jobs:
         run: |
           cd $TOOLCHAIN_PATH/kos/utils/dc-chain
           
+          # Set up environment for Apple Silicon (Homebrew libraries)
+          export LIBRARY_PATH="$(brew --prefix)/lib"
+          export CPATH="$(brew --prefix)/include"
+          
           # Patch the Makefile to use a more reliable mirror and add retry logic
           # Replace ftpmirror.gnu.org with ftp.gnu.org (more stable)
           sed -i '' 's|ftpmirror\.gnu\.org|ftp.gnu.org|g' Makefile
@@ -247,13 +251,16 @@ jobs:
           # Exclude: utils/dc-chain (2.2G), examples (24M), most of kernel source (14M)
           # But include kernel headers which are needed for compilation
           # and essential KOS utilities for C development
+          # BSD tar (macOS) uses --exclude PATTERN (no =)
           tar czf "$TARBALL" \
+            --exclude '*.o' \
+            --exclude '*.c' \
+            --exclude '*.h' \
             sh-elf/ \
             kos/lib/ \
             kos/include/ \
             kos/kernel/arch/dreamcast/ \
             kos/utils/build_wrappers/ \
-            --exclude='*.o' --exclude='*.c' --exclude='*.h' \
             kos/utils/genromfs/genromfs \
             kos/utils/makeip/makeip \
             kos/utils/scramble/scramble \
