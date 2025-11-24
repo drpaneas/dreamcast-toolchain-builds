@@ -123,8 +123,13 @@ jobs:
           echo "=== Makefile.cfg contents ==="
           cat Makefile.cfg
           
-          echo "=== Checking init.mk for Go configuration ==="
-          grep -A5 "enable_go" scripts/init.mk
+          echo ""
+          echo "=== Patched init.mk (Go section) ==="
+          grep -B2 -A5 "enable_go" scripts/init.mk
+          
+          echo ""
+          echo "=== Full init.mk contents ==="
+          cat scripts/init.mk
         shell: bash
 
       # Build the SH4 toolchain
