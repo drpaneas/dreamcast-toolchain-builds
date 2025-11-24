@@ -109,10 +109,15 @@ jobs:
           # Enable Go language support in Makefile.cfg
           echo 'enable_go=1' >> Makefile.cfg
           
+          # Disable C++ and Objective-C to keep build minimal (only C and Go)
+          sed -i '' 's/enable_cpp=1/enable_cpp=0/' Makefile.cfg
+          sed -i '' 's/enable_objc=1/enable_objc=0/' Makefile.cfg
+          sed -i '' 's/enable_objcpp=1/enable_objcpp=0/' Makefile.cfg
+          
           # Patch scripts/init.mk to disable libgo when Go is enabled
           # libgo (Go runtime) doesn't work for bare-metal Dreamcast
-          # Find the line and add the configure arg right after it
-          awk '/pass2_languages := $(pass2_languages),go/ {print; print "    gcc_pass2_configure_args += --disable-libgo"; next} 1' scripts/init.mk > scripts/init.mk.tmp && mv scripts/init.mk.tmp scripts/init.mk
+          # The line has leading spaces, so we need to match with [[:space:]]*
+          awk '/^[[:space:]]*pass2_languages := \$\(pass2_languages\),go/ {print; print "    gcc_pass2_configure_args += --disable-libgo"; next} 1' scripts/init.mk > scripts/init.mk.tmp && mv scripts/init.mk.tmp scripts/init.mk
           
           # Show what we're building
           echo "=== Makefile.cfg contents ==="
