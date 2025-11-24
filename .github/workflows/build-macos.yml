@@ -111,9 +111,8 @@ jobs:
           
           # Patch scripts/init.mk to disable libgo when Go is enabled
           # libgo (Go runtime) doesn't work for bare-metal Dreamcast
-          sed -i '' '/pass2_languages := $(pass2_languages),go/a\
-    gcc_pass2_configure_args += --disable-libgo
-' scripts/init.mk
+          sed -i '' '/pass2_languages := \$(pass2_languages),go/a\
+          \    gcc_pass2_configure_args += --disable-libgo' scripts/init.mk
           
           # Show what we're building
           echo "=== Makefile.cfg contents ==="
