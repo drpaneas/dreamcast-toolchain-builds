@@ -112,8 +112,8 @@ jobs:
           # Enable Go language support in Makefile.cfg
           echo 'enable_go=1' >> Makefile.cfg
           
-          # Disable C++ and Objective-C to keep build minimal (only C and Go)
-          sed -i 's/enable_cpp=1/enable_cpp=0/' Makefile.cfg
+          # Keep C++ enabled (required for libffi and other dependencies)
+          # Disable Objective-C to keep build simpler
           sed -i 's/enable_objc=1/enable_objc=0/' Makefile.cfg
           sed -i 's/enable_objcpp=1/enable_objcpp=0/' Makefile.cfg
           
