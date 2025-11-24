@@ -48,7 +48,16 @@ echo ""
 echo "📚 Checking KallistiOS Libraries:"
 check_dir "$TOOLCHAIN_DIR/kos/lib" "KOS lib directory" || FAILED=1
 check_file "$TOOLCHAIN_DIR/kos/lib/libkallisti.a" "libkallisti.a (KOS kernel)" || FAILED=1
-check_file "$TOOLCHAIN_DIR/kos/lib/libgcc.a" "libgcc.a (GCC runtime)" || FAILED=1
+
+echo ""
+echo "🔧 Checking GCC Libraries:"
+# libgcc.a is in the GCC toolchain, not in KOS
+if ls "$TOOLCHAIN_DIR/sh-elf/lib/gcc/sh-elf/"*/libgcc.a 1> /dev/null 2>&1; then
+    echo -e "${GREEN}✅${NC} libgcc.a (GCC runtime)"
+else
+    echo -e "${RED}❌${NC} libgcc.a (GCC runtime) not found"
+    FAILED=1
+fi
 
 # Optional but common libraries
 if [ -f "$TOOLCHAIN_DIR/kos/lib/libgl.a" ]; then
