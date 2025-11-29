@@ -210,45 +210,11 @@ jobs:
           cp $GITHUB_WORKSPACE/LICENSE kos/ || true
           cp $GITHUB_WORKSPACE/NOTICE kos/ || true
           
-          # Create tarball with BOTH sh-elf toolchain AND KOS (only lib + include)
+          # Create tarball with complete toolchain build
           TARBALL="dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION#v}-linux-x86_64.tar.gz"
           
-          # Package ONLY what's needed for godc:
-          # - sh-elf/ (compilers and GCC libs)
-          # - kos/lib/ (compiled KOS libraries)
-          # - kos/include/ (KOS headers)
-          # - kos/utils/build_wrappers/ (kos-cc wrapper script)
-          # - kos/environ*.sh (environment setup)
-          # - kos/Makefile.rules (build configuration)
-          
-          # First, check where libraries are located
-          echo "Checking library locations..."
-          if [ -d "kos/lib/dreamcast" ]; then
-            echo "Libraries found in kos/lib/dreamcast/"
-            # Move dreamcast libraries to kos/lib for consistent packaging
-            mv kos/lib/dreamcast/* kos/lib/ 2>/dev/null || true
-          fi
-          
-          # Exclude: utils/dc-chain (2.2G), examples (24M), most of kernel source (14M)
-          # But include kernel headers which are needed for compilation
-          # and essential KOS utilities for C development
-          tar czf "$TARBALL" \
-            sh-elf/ \
-            kos/lib/ \
-            kos/include/ \
-            kos/kernel/arch/dreamcast/ \
-            kos/utils/build_wrappers/ \
-            --exclude='*.o' --exclude='*.c' --exclude='*.h' \
-            kos/utils/genromfs/genromfs \
-            kos/utils/makeip/makeip \
-            kos/utils/scramble/scramble \
-            kos/environ.sh \
-            kos/environ_base.sh \
-            kos/environ_dreamcast.sh \
-            kos/Makefile.rules \
-            kos/LICENSE \
-            kos/NOTICE \
-            kos/README.md
+          echo "Packaging complete toolchain..."
+          tar czf "$TARBALL" sh-elf/ kos/
           
           sha256sum "$TARBALL" > "${TARBALL}.sha256"
           
