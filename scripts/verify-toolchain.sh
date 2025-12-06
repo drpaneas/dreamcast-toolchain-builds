@@ -108,10 +108,10 @@ fi
 echo ""
 
 echo "📊 Statistics:"
-KOS_LIB_COUNT=$(ls "$TOOLCHAIN_DIR/kos/lib/dreamcast"/*.a 2>/dev/null | wc -l | tr -d ' ')
+KOS_LIB_COUNT=$(find "$TOOLCHAIN_DIR/kos/lib/dreamcast" -maxdepth 1 -name "*.a" 2>/dev/null | wc -l | tr -d ' ')
 echo "  KOS libraries: $KOS_LIB_COUNT files"
 
-PORTS_LIB_COUNT=$(ls "$TOOLCHAIN_DIR/kos-ports/lib"/*.a 2>/dev/null | wc -l | tr -d ' ')
+PORTS_LIB_COUNT=$(find "$TOOLCHAIN_DIR/kos-ports/lib" -maxdepth 1 -name "*.a" 2>/dev/null | wc -l | tr -d ' ')
 echo "  kos-ports libraries: $PORTS_LIB_COUNT files"
 
 HEADER_COUNT=$(find "$TOOLCHAIN_DIR/kos/include" -name "*.h" 2>/dev/null | wc -l | tr -d ' ')

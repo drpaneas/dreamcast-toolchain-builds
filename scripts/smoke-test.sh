@@ -34,12 +34,13 @@ export PATH="$TOOLCHAIN_DIR/sh-elf/bin:$TOOLCHAIN_DIR/kos/utils/build_wrappers:$
 
 # Source KOS environment if environ.sh exists
 if [ -f "$TOOLCHAIN_DIR/kos/environ.sh" ]; then
+    # shellcheck source=/dev/null
     source "$TOOLCHAIN_DIR/kos/environ.sh"
 fi
 
 # Create temp directory
 TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR" EXIT
+trap 'rm -rf "$TEMP_DIR"' EXIT
 cd "$TEMP_DIR"
 
 TESTS_PASSED=0

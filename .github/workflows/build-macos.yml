@@ -220,8 +220,24 @@ jobs:
           export LIBRARY_PATH="$(brew --prefix)/lib"
           export CPATH="$(brew --prefix)/include"
           
+          echo "Current directory: $(pwd)"
+          echo "TOOLCHAIN_PATH: $TOOLCHAIN_PATH"
+          echo ""
+          
           echo "Cloning kos-ports..."
           git clone --recursive https://github.com/KallistiOS/kos-ports kos-ports
+          
+          echo ""
+          echo "=== Directory structure after clone ==="
+          ls -la $TOOLCHAIN_PATH/
+          echo ""
+          
+          # Verify kos-ports was cloned
+          if [ ! -d "$TOOLCHAIN_PATH/kos-ports" ]; then
+            echo "❌ ERROR: kos-ports directory not found after clone!"
+            exit 1
+          fi
+          echo "✅ kos-ports cloned to $TOOLCHAIN_PATH/kos-ports"
           
           # Disable known broken builds BEFORE building
           echo "Disabling known broken builds..."
@@ -235,6 +251,10 @@ jobs:
             exit 1
           fi
           echo "✅ kos-ports build completed successfully"
+          
+          echo ""
+          echo "=== kos-ports lib directory ==="
+          ls -la $TOOLCHAIN_PATH/kos-ports/lib/ || echo "lib directory not found"
         shell: bash
 
       # Build KOS examples
@@ -271,6 +291,24 @@ jobs:
           GCC_VERSION="${{ steps.version.outputs.gcc_version }}"
           KOS_VERSION="${{ steps.version.outputs.kos_version }}"
           
+          echo "=== Pre-packaging directory listing ==="
+          ls -la $TOOLCHAIN_PATH/
+          echo ""
+          
+          # Verify all components exist before packaging
+          echo "Verifying toolchain components..."
+          for dir in sh-elf kos kos-ports; do
+            if [ ! -d "$dir" ]; then
+              echo "❌ ERROR: $dir directory not found!"
+              echo "Directory contents:"
+              ls -la
+              exit 1
+            fi
+            SIZE=$(du -sh "$dir" | cut -f1)
+            echo "  ✅ $dir exists ($SIZE)"
+          done
+          echo ""
+          
           # Copy license files into the package
           cp $GITHUB_WORKSPACE/LICENSE kos/ || true
           cp $GITHUB_WORKSPACE/NOTICE kos/ || true
@@ -280,11 +318,54 @@ jobs:
           chmod +x $GITHUB_WORKSPACE/scripts/patch-environ.sh
           $GITHUB_WORKSPACE/scripts/patch-environ.sh kos/
           
+          # Show the patched environ.sh
+          echo ""
+          echo "=== Patched environ.sh (first 50 lines) ==="
+          head -50 kos/environ.sh
+          echo ""
+          
+          # Verify environ.sh was patched (should contain auto-detect logic)
+          if ! grep -q "_kos_get_script_dir" kos/environ.sh; then
+            echo "❌ ERROR: environ.sh was not properly patched!"
+            echo "Full contents:"
+            cat kos/environ.sh
+            exit 1
+          fi
+          echo "✅ environ.sh patched for auto-detection"
+          
           # Create tarball with complete toolchain build (everything included)
           TARBALL="dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION#v}-darwin-arm64.tar.gz"
           
-          echo "Packaging complete toolchain (sh-elf, kos, kos-ports)..."
+          echo ""
+          echo "Creating tarball: $TARBALL"
+          echo "Contents: sh-elf/ kos/ kos-ports/"
           tar czf "$TARBALL" sh-elf/ kos/ kos-ports/
+          
+          # Show tarball size
+          TARBALL_SIZE=$(du -h "$TARBALL" | cut -f1)
+          echo "Tarball size: $TARBALL_SIZE"
+          
+          # Verify tarball contents
+          echo ""
+          echo "=== Tarball top-level contents ==="
+          tar tzf "$TARBALL" | grep -E '^[^/]+/$' | head -10
+          
+          echo ""
+          echo "=== Verifying all three directories are in tarball ==="
+          for dir in sh-elf kos kos-ports; do
+            if tar tzf "$TARBALL" | grep -q "^${dir}/"; then
+              COUNT=$(tar tzf "$TARBALL" | grep "^${dir}/" | wc -l | tr -d ' ')
+              echo "  ✅ $dir/ found ($COUNT files)"
+            else
+              echo "  ❌ $dir/ NOT FOUND in tarball!"
+              exit 1
+            fi
+          done
+          
+          # Verify environ.sh is in the tarball and is the patched version
+          echo ""
+          echo "=== Verifying environ.sh in tarball ==="
+          tar xzf "$TARBALL" kos/environ.sh -O | head -20
           
           shasum -a 256 "$TARBALL" > "${TARBALL}.sha256"
           
@@ -292,6 +373,7 @@ jobs:
           mv "$TARBALL" "$GITHUB_WORKSPACE/release/"
           mv "${TARBALL}.sha256" "$GITHUB_WORKSPACE/release/"
           
+          echo ""
           echo "✅ Packaging complete - ready for release!"
         shell: bash
 

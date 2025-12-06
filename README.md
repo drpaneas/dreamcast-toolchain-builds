@@ -13,6 +13,8 @@ Go to [**Releases**](https://github.com/drpaneas/dreamcast-toolchain-builds/rele
 | Linux x86_64 | `dreamcast-toolchain-gcc*-kos*-linux-x86_64.tar.gz` |
 | macOS ARM64 (Apple Silicon) | `dreamcast-toolchain-gcc*-kos*-darwin-arm64.tar.gz` |
 
+> ⚠️ **Important**: Download the correct version for your OS! Linux binaries won't work on macOS and vice versa.
+
 ### 2. Extract
 
 ```bash
@@ -20,8 +22,12 @@ Go to [**Releases**](https://github.com/drpaneas/dreamcast-toolchain-builds/rele
 mkdir -p ~/dreamcast
 cd ~/dreamcast
 
-# Extract (example for Linux - adjust filename as needed)
+# Extract (adjust filename for your platform and version)
+# For Linux:
 tar xzf ~/Downloads/dreamcast-toolchain-gcc15.1.0-kos2.2.1-linux-x86_64.tar.gz
+
+# For macOS:
+tar xzf ~/Downloads/dreamcast-toolchain-gcc15.1.0-kos2.2.1-darwin-arm64.tar.gz
 ```
 
 After extraction, you'll have:
@@ -32,10 +38,19 @@ After extraction, you'll have:
 └── kos-ports/       # Additional libraries (libpng, libjpeg, etc.)
 ```
 
+> 💡 **Verify extraction**: Run `ls ~/dreamcast` — you should see all three directories: `sh-elf`, `kos`, and `kos-ports`.
+
 ### 3. Set Up Environment
 
-The toolchain includes a pre-configured `environ.sh` that auto-detects the installation path. Add this to your `~/.bashrc` or `~/.zshrc`:
+The toolchain includes a pre-configured `environ.sh` that **auto-detects** the installation path. Add this to your shell configuration:
 
+**For Bash** (add to `~/.bashrc`):
+```bash
+# Dreamcast toolchain - source the KOS environment
+source ~/dreamcast/kos/environ.sh
+```
+
+**For Zsh** (add to `~/.zshrc`):
 ```bash
 # Dreamcast toolchain - source the KOS environment
 source ~/dreamcast/kos/environ.sh
@@ -43,17 +58,54 @@ source ~/dreamcast/kos/environ.sh
 
 Then reload your shell:
 ```bash
-source ~/.bashrc  # or ~/.zshrc
+# For Bash:
+source ~/.bashrc
+
+# For Zsh:
+source ~/.zshrc
 ```
 
-Verify it works:
+> ⚠️ **Note**: You must use `source` (or `.`) to load the environment. Running `./environ.sh` directly won't work because environment variables set in a subprocess don't affect your current shell.
+
+### 4. Verify Installation
+
 ```bash
+# Check GCC version
 sh-elf-gcc --version
 # Should show: sh-elf-gcc (GCC) 15.1.0 (or similar)
 
+# Check KOS_BASE points to your installation
 echo $KOS_BASE
-# Should show: /home/youruser/dreamcast/kos (or your install path)
+# Should show: /Users/youruser/dreamcast/kos (or wherever you extracted)
+
+# Check kos-cc wrapper is available
+which kos-cc
+# Should show: /Users/youruser/dreamcast/kos/utils/build_wrappers/kos-cc
 ```
+
+If `$KOS_BASE` shows your actual path (not `/opt/toolchains/dc/kos`), the environment is correctly configured!
+
+### Quick Verification (One-liner)
+
+Run this to verify everything is set up correctly:
+
+```bash
+source ~/dreamcast/kos/environ.sh && sh-elf-gcc --version
+```
+
+Expected output:
+```
+KallistiOS environment loaded:
+  KOS_BASE:    /Users/youruser/dreamcast/kos
+  KOS_CC_BASE: /Users/youruser/dreamcast/sh-elf
+  KOS_PORTS:   /Users/youruser/dreamcast/kos-ports
+  GCC version: 15.1.0
+sh-elf-gcc (GCC) 15.1.0
+Copyright (C) 2025 Free Software Foundation, Inc.
+...
+```
+
+The paths shown should match where you extracted the toolchain (e.g., `/Users/youruser/dreamcast/`), NOT hardcoded paths like `/opt/toolchains/dc/`.
 
 ---
 
@@ -422,6 +474,26 @@ kos-ports/
 
 ## Troubleshooting
 
+### Missing `kos-ports` directory after extraction
+If you only see `sh-elf` and `kos` but not `kos-ports`, you may have downloaded an older release. Download the latest release which includes all three directories.
+
+### `$KOS_BASE` shows `/opt/toolchains/dc/kos` instead of your path
+Your `environ.sh` has hardcoded paths from an older release. The new releases include an auto-detecting `environ.sh`. Either:
+1. Download the latest release, or
+2. The `environ.sh` should auto-detect paths. Check that it contains `BASH_SOURCE` logic.
+
+### "Permission denied" when running `./environ.sh`
+**Don't run it with `./`** — you must use `source`:
+```bash
+# WRONG - runs in subshell, variables don't persist:
+./environ.sh
+
+# CORRECT - loads variables into current shell:
+source ~/dreamcast/kos/environ.sh
+# or equivalently:
+. ~/dreamcast/kos/environ.sh
+```
+
 ### "sh-elf-gcc: command not found"
 Make sure you've sourced the environment:
 ```bash
@@ -441,6 +513,13 @@ You need to link with the correct libraries. Make sure your Makefile uses `kos-c
 
 ### Build errors about missing `arm-eabi-*`
 The ARM toolchain (for AICA sound processor) is not included. Most projects don't need it. If you need to compile custom sound drivers, you'll need to build the ARM toolchain separately.
+
+### Wrong platform (e.g., Linux binary on macOS)
+Make sure you downloaded the correct tarball for your platform:
+- **Linux**: `*-linux-x86_64.tar.gz`
+- **macOS (Apple Silicon)**: `*-darwin-arm64.tar.gz`
+
+Linux binaries will not work on macOS and vice versa.
 
 ---
 
