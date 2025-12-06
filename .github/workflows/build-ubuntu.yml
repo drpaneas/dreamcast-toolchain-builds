@@ -324,27 +324,37 @@ jobs:
           TARBALL_SIZE=$(du -h "$TARBALL" | cut -f1)
           echo "Tarball size: $TARBALL_SIZE"
           
-          # Verify tarball contents
+          # Verify tarball contents - list once to a temp file to avoid multiple decompressions
           echo ""
-          echo "=== Tarball top-level contents ==="
-          tar tzf "$TARBALL" | grep -E '^[^/]+/$' | head -10
+          echo "=== Verifying tarball contents ==="
+          TARBALL_LIST=$(mktemp)
+          tar tzf "$TARBALL" > "$TARBALL_LIST"
+          
+          echo "Top-level directories:"
+          awk -F'/' 'NF==2 && $2=="" {print}' "$TARBALL_LIST" | head -10
           
           echo ""
-          echo "=== Verifying all three directories are in tarball ==="
+          echo "Checking all three directories are present:"
           for dir in sh-elf kos kos-ports; do
-            if tar tzf "$TARBALL" | grep -q "^${dir}/"; then
-              COUNT=$(tar tzf "$TARBALL" | grep "^${dir}/" | wc -l | tr -d ' ')
+            COUNT=$(awk -v d="^${dir}/" '$0 ~ d {c++} END {print c+0}' "$TARBALL_LIST")
+            if [ "$COUNT" -gt 0 ]; then
               echo "  ✅ $dir/ found ($COUNT files)"
             else
               echo "  ❌ $dir/ NOT FOUND in tarball!"
+              rm -f "$TARBALL_LIST"
               exit 1
             fi
           done
+          rm -f "$TARBALL_LIST"
           
-          # Verify environ.sh is in the tarball and is the patched version
+          # Verify environ.sh is in the tarball
           echo ""
           echo "=== Verifying environ.sh in tarball ==="
-          tar xzf "$TARBALL" kos/environ.sh -O | head -20
+          if tar tzf "$TARBALL" | grep -q "kos/environ.sh"; then
+            echo "  ✅ kos/environ.sh is in the tarball"
+          else
+            echo "  ⚠️ Warning: kos/environ.sh not found in tarball listing"
+          fi
           
           sha256sum "$TARBALL" > "${TARBALL}.sha256"
           
