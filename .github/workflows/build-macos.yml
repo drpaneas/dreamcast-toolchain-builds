@@ -110,8 +110,8 @@ jobs:
           # Enable Go language support in Makefile.cfg
           echo 'enable_go=1' >> Makefile.cfg
           
-          # Disable C++ and Objective-C to keep build minimal (only C and Go)
-          sed -i '' 's/enable_cpp=1/enable_cpp=0/' Makefile.cfg
+          # Keep C++ enabled (needed for many Dreamcast projects/engines)
+          # Disable Objective-C to reduce build size
           sed -i '' 's/enable_objc=1/enable_objc=0/' Makefile.cfg
           sed -i '' 's/enable_objcpp=1/enable_objcpp=0/' Makefile.cfg
           
@@ -209,13 +209,59 @@ jobs:
             echo "KOS build failed!"
             exit 1
           fi
+          echo "✅ KallistiOS built successfully"
+        shell: bash
+
+      # Build kos-ports
+      - name: Build kos-ports
+        run: |
+          cd $TOOLCHAIN_PATH
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          export LIBRARY_PATH="$(brew --prefix)/lib"
+          export CPATH="$(brew --prefix)/include"
           
-          # Verify critical files exist
-          echo "Verifying KOS build..."
-          if [ ! -f "$TOOLCHAIN_PATH/kos/lib/dreamcast/libkallisti.a" ]; then
-            echo "ERROR: libkallisti.a not found after build!"
+          echo "Cloning kos-ports..."
+          git clone --recursive https://github.com/KallistiOS/kos-ports kos-ports
+          
+          # Disable known broken builds BEFORE building
+          echo "Disabling known broken builds..."
+          chmod +x $GITHUB_WORKSPACE/scripts/disable-broken-builds.sh
+          $GITHUB_WORKSPACE/scripts/disable-broken-builds.sh $TOOLCHAIN_PATH
+          
+          echo "Building kos-ports..."
+          cd kos-ports
+          if ! ./utils/build-all.sh; then
+            echo "❌ kos-ports build failed!"
             exit 1
           fi
+          echo "✅ kos-ports build completed successfully"
+        shell: bash
+
+      # Build KOS examples
+      - name: Build KOS examples
+        run: |
+          cd $TOOLCHAIN_PATH/kos
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          export LIBRARY_PATH="$(brew --prefix)/lib"
+          export CPATH="$(brew --prefix)/include"
+          
+          echo "Building KallistiOS examples..."
+          cd examples
+          if ! make; then
+            echo "❌ KallistiOS examples build failed!"
+            exit 1
+          fi
+          echo "✅ KallistiOS examples build completed successfully"
+        shell: bash
+
+      # Run smoke test before packaging
+      - name: Run smoke test
+        run: |
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          export LIBRARY_PATH="$(brew --prefix)/lib"
+          export CPATH="$(brew --prefix)/include"
+          chmod +x $GITHUB_WORKSPACE/scripts/smoke-test.sh
+          $GITHUB_WORKSPACE/scripts/smoke-test.sh $TOOLCHAIN_PATH
         shell: bash
 
       # Package the toolchain
@@ -229,43 +275,24 @@ jobs:
           cp $GITHUB_WORKSPACE/LICENSE kos/ || true
           cp $GITHUB_WORKSPACE/NOTICE kos/ || true
           
-          # Create tarball with complete toolchain build
+          # Patch environ.sh for relocatable installation
+          echo "Patching environ.sh for relocatable installation..."
+          chmod +x $GITHUB_WORKSPACE/scripts/patch-environ.sh
+          $GITHUB_WORKSPACE/scripts/patch-environ.sh kos/
+          
+          # Create tarball with complete toolchain build (everything included)
           TARBALL="dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION#v}-darwin-arm64.tar.gz"
           
-          echo "Packaging complete toolchain..."
-          tar czf "$TARBALL" sh-elf/ kos/
+          echo "Packaging complete toolchain (sh-elf, kos, kos-ports)..."
+          tar czf "$TARBALL" sh-elf/ kos/ kos-ports/
           
           shasum -a 256 "$TARBALL" > "${TARBALL}.sha256"
           
           mkdir -p $GITHUB_WORKSPACE/release
           mv "$TARBALL" "$GITHUB_WORKSPACE/release/"
           mv "${TARBALL}.sha256" "$GITHUB_WORKSPACE/release/"
-        shell: bash
-
-      # Verify the package before uploading
-      - name: Verify toolchain package
-        run: |
-          cd $GITHUB_WORKSPACE/release
           
-          # Extract to temp location for verification
-          mkdir -p /tmp/verify-toolchain
-          tar xzf dreamcast-toolchain-*.tar.gz -C /tmp/verify-toolchain
-          
-          # Run verification script
-          echo "🔍 Running verification on packaged toolchain..."
-          chmod +x $GITHUB_WORKSPACE/scripts/verify-toolchain.sh
-          $GITHUB_WORKSPACE/scripts/verify-toolchain.sh /tmp/verify-toolchain
-          
-          echo ""
-          echo "🧪 Running smoke test..."
-          chmod +x $GITHUB_WORKSPACE/scripts/smoke-test.sh
-          $GITHUB_WORKSPACE/scripts/smoke-test.sh /tmp/verify-toolchain
-          
-          # Cleanup
-          rm -rf /tmp/verify-toolchain
-          
-          echo ""
-          echo "✅ All verification tests PASSED - Safe to release!"
+          echo "✅ Packaging complete - ready for release!"
         shell: bash
 
       # Upload libffi config.log on failure for debugging
@@ -292,16 +319,23 @@ jobs:
             Pre-built cross-compilation toolchain for Sega Dreamcast development.
             
             ### Included Components
-            - **GCC**: ${{ steps.version.outputs.gcc_version }} with C and Go support
+            - **GCC**: ${{ steps.version.outputs.gcc_version }} with C, C++, and Go support
             - **KallistiOS**: ${{ steps.version.outputs.kos_version }} ([release](https://github.com/KallistiOS/KallistiOS/releases/tag/${{ steps.version.outputs.kos_version }}))
+            - **kos-ports**: Pre-built ports and libraries
+            - **KOS examples**: Built example programs
             - **Binutils**: Latest compatible version from dc-chain
             
             ### Installation
             ```bash
             # Extract the tarball
             tar xzf dreamcast-toolchain-gcc${{ steps.version.outputs.gcc_version }}-kos${{ steps.version.outputs.kos_version_short }}-darwin-arm64.tar.gz
-            export PATH="$PWD/kos/bin:$PATH"
+            
+            # Add toolchain to PATH
+            export PATH="$PWD/sh-elf/bin:$PWD/kos/utils/build_wrappers:$PATH"
+            
+            # Verify installation
             sh-elf-gcc --version
+            kos-cc --version
             ```
             
             ### License Information

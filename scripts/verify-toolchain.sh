@@ -37,17 +37,19 @@ check_dir() {
 FAILED=0
 
 echo "📦 Checking Binaries:"
-check_file "$TOOLCHAIN_DIR/sh-elf/bin/sh-elf-gccgo" "sh-elf-gccgo (Go compiler)" || FAILED=1
 check_file "$TOOLCHAIN_DIR/sh-elf/bin/sh-elf-gcc" "sh-elf-gcc (C compiler)" || FAILED=1
+check_file "$TOOLCHAIN_DIR/sh-elf/bin/sh-elf-g++" "sh-elf-g++ (C++ compiler)" || FAILED=1
+check_file "$TOOLCHAIN_DIR/sh-elf/bin/sh-elf-gccgo" "sh-elf-gccgo (Go compiler)" || FAILED=1
 check_file "$TOOLCHAIN_DIR/sh-elf/bin/sh-elf-as" "sh-elf-as (Assembler)" || FAILED=1
 check_file "$TOOLCHAIN_DIR/sh-elf/bin/sh-elf-ld" "sh-elf-ld (Linker)" || FAILED=1
 check_file "$TOOLCHAIN_DIR/sh-elf/bin/sh-elf-ar" "sh-elf-ar (Archiver)" || FAILED=1
 check_file "$TOOLCHAIN_DIR/kos/utils/build_wrappers/kos-cc" "kos-cc (KOS wrapper)" || FAILED=1
+check_file "$TOOLCHAIN_DIR/kos/utils/build_wrappers/kos-c++" "kos-c++ (KOS C++ wrapper)" || FAILED=1
 echo ""
 
 echo "📚 Checking KallistiOS Libraries:"
-check_dir "$TOOLCHAIN_DIR/kos/lib" "KOS lib directory" || FAILED=1
-check_file "$TOOLCHAIN_DIR/kos/lib/libkallisti.a" "libkallisti.a (KOS kernel)" || FAILED=1
+check_dir "$TOOLCHAIN_DIR/kos/lib/dreamcast" "KOS lib directory" || FAILED=1
+check_file "$TOOLCHAIN_DIR/kos/lib/dreamcast/libkallisti.a" "libkallisti.a (KOS kernel)" || FAILED=1
 
 echo ""
 echo "🔧 Checking GCC Libraries:"
@@ -58,17 +60,18 @@ else
     echo -e "${RED}❌${NC} libgcc.a (GCC runtime) not found"
     FAILED=1
 fi
+echo ""
 
-# Optional but common libraries
-if [ -f "$TOOLCHAIN_DIR/kos/lib/libgl.a" ]; then
-    echo -e "${GREEN}✅${NC} libgl.a (OpenGL)"
-fi
-if [ -f "$TOOLCHAIN_DIR/kos/lib/libpng.a" ]; then
-    echo -e "${GREEN}✅${NC} libpng.a (PNG support)"
-fi
-if [ -f "$TOOLCHAIN_DIR/kos/lib/libjpeg.a" ]; then
-    echo -e "${GREEN}✅${NC} libjpeg.a (JPEG support)"
-fi
+echo "📦 Checking kos-ports Libraries:"
+check_dir "$TOOLCHAIN_DIR/kos-ports/lib" "kos-ports lib directory" || FAILED=1
+
+# Check common kos-ports libraries
+PORTS_LIBS=("libpng.a" "libz.a" "libjpeg.a" "libGL.a" "libfreetype.a" "liblua.a")
+for lib in "${PORTS_LIBS[@]}"; do
+    if [ -f "$TOOLCHAIN_DIR/kos-ports/lib/$lib" ]; then
+        echo -e "${GREEN}✅${NC} $lib"
+    fi
+done
 echo ""
 
 echo "📄 Checking KallistiOS Headers:"
@@ -105,8 +108,11 @@ fi
 echo ""
 
 echo "📊 Statistics:"
-LIB_COUNT=$(ls "$TOOLCHAIN_DIR/kos/lib"/*.a 2>/dev/null | wc -l | tr -d ' ')
-echo "  KOS libraries: $LIB_COUNT files"
+KOS_LIB_COUNT=$(ls "$TOOLCHAIN_DIR/kos/lib/dreamcast"/*.a 2>/dev/null | wc -l | tr -d ' ')
+echo "  KOS libraries: $KOS_LIB_COUNT files"
+
+PORTS_LIB_COUNT=$(ls "$TOOLCHAIN_DIR/kos-ports/lib"/*.a 2>/dev/null | wc -l | tr -d ' ')
+echo "  kos-ports libraries: $PORTS_LIB_COUNT files"
 
 HEADER_COUNT=$(find "$TOOLCHAIN_DIR/kos/include" -name "*.h" 2>/dev/null | wc -l | tr -d ' ')
 echo "  KOS headers: $HEADER_COUNT files"
