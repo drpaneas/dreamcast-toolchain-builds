@@ -257,6 +257,67 @@ jobs:
           ls -la $TOOLCHAIN_PATH/kos-ports/lib/ || echo "lib directory not found"
         shell: bash
 
+      # Install Go and godc tool
+      - name: Install Go and godc
+        run: |
+          echo "Installing latest Go..."
+          
+          # Install Go via Homebrew (latest version)
+          brew install go
+          
+          # Set up Go environment
+          export PATH="$(brew --prefix go)/bin:$HOME/go/bin:$PATH"
+          echo "PATH=$(brew --prefix go)/bin:$HOME/go/bin:$PATH" >> $GITHUB_ENV
+          
+          # Verify Go installation
+          go version
+          
+          echo "Installing godc tool..."
+          go install github.com/drpaneas/godc@latest
+          
+          # Verify godc installation
+          if command -v godc &> /dev/null; then
+            echo "✅ godc installed successfully"
+            godc --help || true
+          else
+            echo "⚠️ godc not found in PATH, checking ~/go/bin..."
+            ls -la ~/go/bin/ || echo "~/go/bin not found"
+          fi
+        shell: bash
+
+      # Build libgodc (Go bindings for Dreamcast)
+      - name: Build libgodc
+        run: |
+          cd $TOOLCHAIN_PATH
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          export LIBRARY_PATH="$(brew --prefix)/lib"
+          export CPATH="$(brew --prefix)/include"
+          
+          echo "Downloading libgodc v0.1.0..."
+          curl -L "https://github.com/drpaneas/libgodc/archive/refs/tags/v0.1.0.tar.gz" -o libgodc.tar.gz
+          
+          echo "Extracting libgodc..."
+          tar xzf libgodc.tar.gz
+          
+          # Rename extracted directory to libgodc
+          mv libgodc-0.1.0 libgodc
+          
+          # Clean up tarball
+          rm libgodc.tar.gz
+          
+          echo "Building libgodc..."
+          cd libgodc
+          if ! make; then
+            echo "❌ libgodc build failed!"
+            exit 1
+          fi
+          echo "✅ libgodc build completed successfully"
+          
+          echo ""
+          echo "=== libgodc directory contents ==="
+          ls -la $TOOLCHAIN_PATH/libgodc/
+        shell: bash
+
       # Build KOS examples
       - name: Build KOS examples
         run: |
@@ -297,7 +358,7 @@ jobs:
           
           # Verify all components exist before packaging
           echo "Verifying toolchain components..."
-          for dir in sh-elf kos kos-ports; do
+          for dir in sh-elf kos kos-ports libgodc; do
             if [ ! -d "$dir" ]; then
               echo "❌ ERROR: $dir directory not found!"
               echo "Directory contents:"
@@ -338,8 +399,8 @@ jobs:
           
           echo ""
           echo "Creating tarball: $TARBALL"
-          echo "Contents: sh-elf/ kos/ kos-ports/"
-          tar czf "$TARBALL" sh-elf/ kos/ kos-ports/
+          echo "Contents: sh-elf/ kos/ kos-ports/ libgodc/"
+          tar czf "$TARBALL" sh-elf/ kos/ kos-ports/ libgodc/
           
           # Show tarball size
           TARBALL_SIZE=$(du -h "$TARBALL" | cut -f1)
@@ -355,8 +416,8 @@ jobs:
           awk -F'/' 'NF==2 && $2=="" {print}' "$TARBALL_LIST" | head -10
           
           echo ""
-          echo "Checking all three directories are present:"
-          for dir in sh-elf kos kos-ports; do
+          echo "Checking all directories are present:"
+          for dir in sh-elf kos kos-ports libgodc; do
             COUNT=$(awk -v d="^${dir}/" '$0 ~ d {c++} END {print c+0}' "$TARBALL_LIST")
             if [ "$COUNT" -gt 0 ]; then
               echo "  ✅ $dir/ found ($COUNT files)"
