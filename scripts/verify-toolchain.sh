@@ -60,6 +60,12 @@ else
     echo -e "${RED}❌${NC} libgcc.a (GCC runtime) not found"
     FAILED=1
 fi
+
+echo ""
+echo "📚 Checking Newlib Libraries:"
+check_file "$TOOLCHAIN_DIR/sh-elf/sh-elf/lib/libc.a" "libc.a (C standard library)" || FAILED=1
+check_file "$TOOLCHAIN_DIR/sh-elf/sh-elf/lib/libm.a" "libm.a (Math library)" || FAILED=1
+check_file "$TOOLCHAIN_DIR/sh-elf/sh-elf/lib/libg.a" "libg.a (Debug C library)" || FAILED=1
 echo ""
 
 echo "📦 Checking kos-ports Libraries:"

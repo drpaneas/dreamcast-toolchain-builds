@@ -115,21 +115,26 @@ export KOS_CFLAGS="${KOS_CFLAGS} -fno-builtin"
 # SH4 floating-point precision
 export KOS_SH4_PRECISION="-m4-single"
 
-# === Load shared environment (sets up PATH, etc.) ===
+# === Load shared environment (sets up compiler flags, etc.) ===
 if [ -f "${KOS_BASE}/environ_base.sh" ]; then
     . "${KOS_BASE}/environ_base.sh"
 else
     echo "WARNING: environ_base.sh not found at ${KOS_BASE}/environ_base.sh" >&2
 fi
 
+# === Set up PATH - prepend to ensure this toolchain takes precedence ===
+# This is important if user has another KOS/toolchain already in PATH
+export PATH="${KOS_CC_BASE}/bin:${KOS_BASE}/utils/build_wrappers:${PATH}"
+
 # === Verify and display ===
 echo "KallistiOS environment loaded:"
 echo "  KOS_BASE:    $KOS_BASE"
-echo "  KOS_CC_BASE: $KOS_CC_BASE"  
+echo "  KOS_CC_BASE: $KOS_CC_BASE"
 echo "  KOS_PORTS:   $KOS_PORTS"
 if [ -n "${KOS_GCCVER:-}" ]; then
     echo "  GCC version: $KOS_GCCVER"
 fi
+echo "  PATH updated: ${KOS_CC_BASE}/bin and ${KOS_BASE}/utils/build_wrappers prepended"
 
 # Cleanup temporary variables
 unset _KOS_SCRIPT_DIR _TOOLCHAIN_BASE

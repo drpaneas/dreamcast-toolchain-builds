@@ -81,9 +81,17 @@ echo $KOS_BASE
 # Check kos-cc wrapper is available
 which kos-cc
 # Should show: /Users/youruser/dreamcast/kos/utils/build_wrappers/kos-cc
+
+# Verify the correct toolchain is in PATH
+which sh-elf-gcc
+# Should show: /Users/youruser/dreamcast/sh-elf/bin/sh-elf-gcc
 ```
 
 If `$KOS_BASE` shows your actual path (not `/opt/toolchains/dc/kos`), the environment is correctly configured!
+
+> **Note**: The `environ.sh` script automatically **prepends** the toolchain paths to your `$PATH`. This ensures this toolchain takes precedence even if you have another KOS installation. The paths added are:
+> - `$KOS_CC_BASE/bin` (sh-elf-gcc, etc.)
+> - `$KOS_BASE/utils/build_wrappers` (kos-cc, etc.)
 
 ### Quick Verification (One-liner)
 
@@ -100,6 +108,7 @@ KallistiOS environment loaded:
   KOS_CC_BASE: /Users/youruser/dreamcast/sh-elf
   KOS_PORTS:   /Users/youruser/dreamcast/kos-ports
   GCC version: 15.1.0
+  PATH updated: /Users/youruser/dreamcast/sh-elf/bin and /Users/youruser/dreamcast/kos/utils/build_wrappers prepended
 sh-elf-gcc (GCC) 15.1.0
 Copyright (C) 2025 Free Software Foundation, Inc.
 ...
