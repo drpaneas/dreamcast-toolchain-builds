@@ -153,9 +153,14 @@ jobs:
           export LIBRARY_PATH="$(brew --prefix)/lib"
           export CPATH="$(brew --prefix)/include"
           
-          # Patch the Makefile to use a more reliable mirror and add retry logic
-          # Replace ftpmirror.gnu.org with ftp.gnu.org (more stable)
-          sed -i '' 's|ftpmirror\.gnu\.org|ftp.gnu.org|g' Makefile
+          # Check if ftpmirror.gnu.org is available, fallback to ftp.gnu.org if not
+          echo "Checking GNU mirror availability..."
+          if curl --silent --head --fail --connect-timeout 10 "https://ftpmirror.gnu.org/gnu/gcc/" > /dev/null 2>&1; then
+            echo "✅ ftpmirror.gnu.org is available, using default mirror"
+          else
+            echo "⚠️ ftpmirror.gnu.org is offline or unreachable, switching to ftp.gnu.org"
+            sed -i '' 's|ftpmirror\.gnu\.org|ftp.gnu.org|g' Makefile
+          fi
           
           # Add retry logic for downloads
           export CURL_OPTS="--retry 5 --retry-delay 10 --retry-max-time 300"
