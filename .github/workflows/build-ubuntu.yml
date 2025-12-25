@@ -23,7 +23,7 @@ env:
 jobs:
   build-ubuntu:
     name: Build on Ubuntu
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04  # Use 20.04 for glibc 2.31 compatibility (works on more Linux distros)
     permissions:
       contents: write  # Required to create releases and upload assets
 
@@ -140,14 +140,9 @@ jobs:
         run: |
           cd $TOOLCHAIN_PATH/kos/utils/dc-chain
           
-          # Check if ftpmirror.gnu.org is available, fallback to ftp.gnu.org if not
-          echo "Checking GNU mirror availability..."
-          if curl --silent --head --fail --connect-timeout 10 "https://ftpmirror.gnu.org/gnu/gcc/" > /dev/null 2>&1; then
-            echo "✅ ftpmirror.gnu.org is available, using default mirror"
-          else
-            echo "⚠️ ftpmirror.gnu.org is offline or unreachable, switching to ftp.gnu.org"
-            sed -i 's|ftpmirror\.gnu\.org|ftp.gnu.org|g' Makefile
-          fi
+          # Patch the Makefile to use a more reliable mirror and add retry logic
+          # Replace ftpmirror.gnu.org with ftp.gnu.org (more stable)
+          sed -i 's|ftpmirror\.gnu\.org|ftp.gnu.org|g' Makefile
           
           # Add retry logic for downloads
           export CURL_OPTS="--retry 5 --retry-delay 10 --retry-max-time 300"
