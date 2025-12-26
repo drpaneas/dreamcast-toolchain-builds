@@ -205,6 +205,12 @@ jobs:
             fi
           done
           
+          # Create sh-elf-ld -> sh-elf-ld.bfd if ld doesn't exist but ld.bfd does
+          if [ ! -f "$BIN_DIR/sh-elf-ld" ] && [ -f "$BIN_DIR/sh-elf-ld.bfd" ]; then
+            ln -sf "sh-elf-ld.bfd" "$BIN_DIR/sh-elf-ld"
+            echo "  Created symlink: sh-elf-ld -> sh-elf-ld.bfd"
+          fi
+          
           # Create libc.a symlink if missing (newlib's libg.a is the debug C library)
           LIB_DIR="$TOOLCHAIN_PATH/sh-elf/sh-elf/lib"
           if [ ! -f "$LIB_DIR/libc.a" ] && [ -f "$LIB_DIR/libg.a" ]; then
