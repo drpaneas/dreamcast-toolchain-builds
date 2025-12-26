@@ -220,6 +220,16 @@ jobs:
               echo "  Created symlink: m4-single-only/libc.a -> libg.a"
             fi
           fi
+          # Create GCC symlinks if missing (gcc-15.1.0 -> gcc, etc.)
+          GCC_VER="${{ steps.version.outputs.gcc_version }}"
+          if [ ! -f "$BIN_DIR/sh-elf-gcc" ] && [ -f "$BIN_DIR/sh-elf-gcc-$GCC_VER" ]; then
+            ln -sf "sh-elf-gcc-$GCC_VER" "$BIN_DIR/sh-elf-gcc"
+            echo "  Created symlink: sh-elf-gcc -> sh-elf-gcc-$GCC_VER"
+          fi
+          if [ ! -f "$BIN_DIR/sh-elf-g++" ] && [ -f "$BIN_DIR/sh-elf-c++" ]; then
+            ln -sf "sh-elf-c++" "$BIN_DIR/sh-elf-g++"
+            echo "  Created symlink: sh-elf-g++ -> sh-elf-c++"
+          fi
           echo "✅ Symlinks created"
           
           # Verify all critical binutils tools exist
