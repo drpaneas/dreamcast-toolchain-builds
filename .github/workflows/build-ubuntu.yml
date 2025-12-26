@@ -23,7 +23,7 @@ env:
 jobs:
   build-ubuntu:
     name: Build on Ubuntu
-    runs-on: ubuntu-20.04  # Use 20.04 for glibc 2.31 compatibility (works on more Linux distros)
+    runs-on: ubuntu-22.04  # Oldest available runner; glibc 2.35 (compatible with Ubuntu 22.04+, Debian 11+)
     permissions:
       contents: write  # Required to create releases and upload assets
 
