@@ -560,7 +560,7 @@ jobs:
             ```
             
             ### License Information
-            This distribution includes GPL v3 (GCC, Binutils), BSD-licensed (KallistiOS), and MIT-licensed (libgodc) components.
+            This distribution includes GPL v3 (GCC, Binutils) and BSD-licensed (KallistiOS, libgodc) components.
             
             **Source Code** (GPL compliance):
             - GCC: https://ftp.gnu.org/gnu/gcc/gcc-${{ steps.version.outputs.gcc_version }}/
