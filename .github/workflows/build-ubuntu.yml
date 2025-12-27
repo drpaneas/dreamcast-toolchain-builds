@@ -351,17 +351,8 @@ jobs:
           export LIBRARY_PATH="/usr/local/lib"
           export CPATH="/usr/local/include"
           
-          echo "Downloading libgodc v0.1.0..."
-          curl -L "https://github.com/drpaneas/libgodc/archive/refs/tags/v0.1.0.tar.gz" -o libgodc.tar.gz
-          
-          echo "Extracting libgodc..."
-          tar xzf libgodc.tar.gz
-          
-          # Rename extracted directory to libgodc
-          mv libgodc-0.1.0 libgodc
-          
-          # Clean up tarball
-          rm libgodc.tar.gz
+          echo "Cloning libgodc..."
+          git clone https://github.com/drpaneas/libgodc.git libgodc
           
           echo "Building libgodc..."
           cd libgodc
@@ -522,6 +513,7 @@ jobs:
             - **GCC**: ${{ steps.version.outputs.gcc_version }} with C, C++, and Go support
             - **KallistiOS**: ${{ steps.version.outputs.kos_version }} ([release](https://github.com/KallistiOS/KallistiOS/releases/tag/${{ steps.version.outputs.kos_version }}))
             - **kos-ports**: Pre-built ports and libraries
+            - **libgodc**: Go bindings for Dreamcast ([source](https://github.com/drpaneas/libgodc))
             - **KOS examples**: Built example programs
             - **Binutils**: Latest compatible version from dc-chain
             
@@ -539,11 +531,12 @@ jobs:
             ```
             
             ### License Information
-            This distribution includes GPL v3 (GCC, Binutils) and BSD-licensed (KallistiOS) components.
+            This distribution includes GPL v3 (GCC, Binutils), BSD-licensed (KallistiOS), and MIT-licensed (libgodc) components.
             
             **Source Code** (GPL compliance):
             - GCC: https://ftp.gnu.org/gnu/gcc/gcc-${{ steps.version.outputs.gcc_version }}/
             - KallistiOS: https://github.com/KallistiOS/KallistiOS
+            - libgodc: https://github.com/drpaneas/libgodc
             - Build scripts: This repository
             
             See LICENSE and NOTICE files included in the distribution for complete details.
