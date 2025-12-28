@@ -11,6 +11,7 @@ Go to [**Releases**](https://github.com/drpaneas/dreamcast-toolchain-builds/rele
 | Platform | File |
 |----------|------|
 | Linux x86_64 | `dreamcast-toolchain-gcc*-kos*-linux-x86_64.tar.gz` |
+| Linux ARM64 (aarch64) | `dreamcast-toolchain-gcc*-kos*-linux-arm64.tar.gz` |
 | macOS ARM64 (Apple Silicon) | `dreamcast-toolchain-gcc*-kos*-darwin-arm64.tar.gz` |
 
 > ⚠️ **Important**: Download the correct version for your OS! Linux binaries won't work on macOS and vice versa.
@@ -23,10 +24,13 @@ mkdir -p ~/dreamcast
 cd ~/dreamcast
 
 # Extract (adjust filename for your platform and version)
-# For Linux:
+# For Linux x86_64:
 tar xzf ~/Downloads/dreamcast-toolchain-gcc15.1.0-kos2.2.1-linux-x86_64.tar.gz
 
-# For macOS:
+# For Linux ARM64:
+tar xzf ~/Downloads/dreamcast-toolchain-gcc15.1.0-kos2.2.1-linux-arm64.tar.gz
+
+# For macOS ARM64:
 tar xzf ~/Downloads/dreamcast-toolchain-gcc15.1.0-kos2.2.1-darwin-arm64.tar.gz
 ```
 
@@ -525,10 +529,11 @@ The ARM toolchain (for AICA sound processor) is not included. Most projects don'
 
 ### Wrong platform (e.g., Linux binary on macOS)
 Make sure you downloaded the correct tarball for your platform:
-- **Linux**: `*-linux-x86_64.tar.gz`
+- **Linux x86_64**: `*-linux-x86_64.tar.gz`
+- **Linux ARM64**: `*-linux-arm64.tar.gz`
 - **macOS (Apple Silicon)**: `*-darwin-arm64.tar.gz`
 
-Linux binaries will not work on macOS and vice versa.
+Binaries for one platform will not work on another.
 
 ---
 
