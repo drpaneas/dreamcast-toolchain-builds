@@ -37,12 +37,13 @@ tar xzf ~/Downloads/dreamcast-toolchain-gcc15.1.0-kos2.2.1-darwin-arm64.tar.gz
 After extraction, you'll have:
 ```
 ~/dreamcast/
-├── sh-elf/          # GCC cross-compiler for Dreamcast's SH4 CPU
 ├── kos/             # KallistiOS SDK (headers, libraries, tools)
-└── kos-ports/       # Additional libraries (libpng, libjpeg, etc.)
+├── kos-ports/       # Additional libraries (libpng, libjpeg, etc.)
+├── libgodc/         # Go runtime for Dreamcast
+└── sh-elf/          # GCC cross-compiler for Dreamcast's SH4 CPU
 ```
 
-> 💡 **Verify extraction**: Run `ls ~/dreamcast` — you should see all three directories: `sh-elf`, `kos`, and `kos-ports`.
+> 💡 **Verify extraction**: Run `ls ~/dreamcast` — you should see all four directories: `kos`, `kos-ports`, `libgodc`, and `sh-elf`.
 
 ### 3. Set Up Environment
 
