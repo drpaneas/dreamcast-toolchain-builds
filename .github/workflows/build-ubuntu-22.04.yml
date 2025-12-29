@@ -1,0 +1,555 @@
+name: Build Ubuntu 22.04
+
+on:
+  push:
+    tags:
+      - 'gcc*-kos*'
+  workflow_dispatch:
+    inputs:
+      gcc_version:
+        description: 'GCC version (e.g., 15.1.0) - Leave empty to use default'
+        required: false
+        type: string
+      kos_version:
+        description: 'KallistiOS version tag (e.g., v2.2.1) - Leave empty to use default'
+        required: false
+        type: string
+
+# Configuration: Edit these to change default versions
+env:
+  DEFAULT_GCC_VERSION: '15.1.0'
+  DEFAULT_KOS_VERSION: 'v2.2.1'
+
+jobs:
+  build-ubuntu-22:
+    name: Build on Ubuntu 22.04
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write  # Required to create releases and upload assets
+
+    env:
+      TOOLCHAIN_PATH: /opt/toolchains/dc
+
+    steps:
+      # Determine versions from tag, input, or defaults
+      - name: Set versions
+        id: version
+        run: |
+          # Extract versions from tag format: gcc15.1.0-kos2.2.1 or gcc15.1.0-kosv2.2.1
+          if [[ "${{ github.event_name }}" == "push" && "$GITHUB_REF_NAME" =~ gcc([0-9]+\.[0-9]+\.[0-9]+)-kos(v?)([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            echo "gcc_version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            KOS_VER="${BASH_REMATCH[2]}${BASH_REMATCH[3]}"  # Includes 'v' if present
+            # Ensure KOS version has 'v' prefix
+            if [[ ! "$KOS_VER" =~ ^v ]]; then
+              KOS_VER="v${KOS_VER}"
+            fi
+            echo "kos_version=${KOS_VER}" >> $GITHUB_OUTPUT
+            echo "kos_version_short=${BASH_REMATCH[3]}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Manual trigger: use inputs or defaults
+            if [[ -n "${{ inputs.gcc_version }}" ]]; then
+              echo "gcc_version=${{ inputs.gcc_version }}" >> $GITHUB_OUTPUT
+            else
+              echo "gcc_version=${{ env.DEFAULT_GCC_VERSION }}" >> $GITHUB_OUTPUT
+            fi
+            if [[ -n "${{ inputs.kos_version }}" ]]; then
+              KOS_VER="${{ inputs.kos_version }}"
+            else
+              KOS_VER="${{ env.DEFAULT_KOS_VERSION }}"
+            fi
+            echo "kos_version=${KOS_VER}" >> $GITHUB_OUTPUT
+            echo "kos_version_short=${KOS_VER#v}" >> $GITHUB_OUTPUT
+          else
+            # Fallback to defaults
+            echo "gcc_version=${{ env.DEFAULT_GCC_VERSION }}" >> $GITHUB_OUTPUT
+            KOS_VER="${{ env.DEFAULT_KOS_VERSION }}"
+            echo "kos_version=${KOS_VER}" >> $GITHUB_OUTPUT
+            echo "kos_version_short=${KOS_VER#v}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      # Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Install dependencies on Ubuntu
+      - name: Set up dependencies on Ubuntu
+        run: |
+          sudo apt-get update
+          sudo apt install -y gawk patch bzip2 tar make libgmp-dev libmpfr-dev libmpc-dev gettext wget \
+            libelf-dev texinfo bison flex sed git build-essential diffutils curl libjpeg-dev libpng-dev \
+            python3 pkg-config cmake libisofs-dev meson ninja-build rake
+        shell: bash
+
+      # Create the toolchain directory and download KallistiOS
+      - name: Create toolchain directory and download KallistiOS
+        run: |
+          sudo mkdir -p $TOOLCHAIN_PATH
+          sudo chmod -R 755 $TOOLCHAIN_PATH
+          sudo chown -R $(id -u):$(id -g) $TOOLCHAIN_PATH
+          cd $TOOLCHAIN_PATH
+          
+          # Use the specified KallistiOS version
+          KOS_VERSION="${{ steps.version.outputs.kos_version }}"
+          echo "Downloading KallistiOS ${KOS_VERSION}..."
+          
+          # Download and extract the release tarball
+          curl -L "https://github.com/KallistiOS/KallistiOS/archive/refs/tags/${KOS_VERSION}.tar.gz" -o kos.tar.gz
+          tar xzf kos.tar.gz
+          mv KallistiOS-${KOS_VERSION#v} kos
+          rm kos.tar.gz
+          
+          echo "KallistiOS ${KOS_VERSION} downloaded and extracted"
+        shell: bash
+
+      # Configure the toolchain
+      - name: Configure the toolchain
+        run: |
+          cd $TOOLCHAIN_PATH/kos/utils/dc-chain
+          cp Makefile.default.cfg Makefile.cfg
+          sed -i "s/toolchain_profile=stable/toolchain_profile=${{ steps.version.outputs.gcc_version }}/" Makefile.cfg
+          
+          # Enable Go language support in Makefile.cfg
+          echo 'enable_go=1' >> Makefile.cfg
+          
+          # Keep C++ enabled (needed for many Dreamcast projects/engines)
+          # Disable Objective-C to reduce build size
+          sed -i 's/enable_objc=1/enable_objc=0/' Makefile.cfg
+          sed -i 's/enable_objcpp=1/enable_objcpp=0/' Makefile.cfg
+          
+          # Patch scripts/init.mk to disable libgo when Go is enabled
+          # libgo (Go runtime) doesn't work for bare-metal Dreamcast
+          # The line has leading spaces, so we need to match with \s*
+          awk '/^\s*pass2_languages := \$\(pass2_languages\),go/ {print; print "    gcc_pass2_configure_args += --disable-libgo"; next} 1' scripts/init.mk > scripts/init.mk.tmp && mv scripts/init.mk.tmp scripts/init.mk
+          
+          # Show what we're building
+          echo "=== Makefile.cfg contents ==="
+          cat Makefile.cfg
+          
+          echo ""
+          echo "=== Patched init.mk (Go section) ==="
+          grep -B2 -A5 "enable_go" scripts/init.mk
+          
+          echo ""
+          echo "=== Full init.mk contents ==="
+          cat scripts/init.mk
+        shell: bash
+
+      # Build the SH4 toolchain
+      - name: Build SH4 Toolchain
+        run: |
+          cd $TOOLCHAIN_PATH/kos/utils/dc-chain
+          
+          # Patch the Makefile to use a more reliable mirror and add retry logic
+          # Replace ftpmirror.gnu.org with ftp.gnu.org (more stable)
+          sed -i 's|ftpmirror\.gnu\.org|ftp.gnu.org|g' Makefile
+          
+          # Add retry logic for downloads
+          export CURL_OPTS="--retry 5 --retry-delay 10 --retry-max-time 300"
+          
+          # Try to build with retries
+          for i in 1 2 3; do
+            echo "Attempt $i of 3..."
+            if make; then
+              echo "Build successful!"
+              break
+            else
+              echo "Build failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
+          
+          # Verify Go compiler was built
+          echo "Verifying toolchain build..."
+          if [ ! -f "$TOOLCHAIN_PATH/sh-elf/bin/sh-elf-gccgo" ]; then
+            echo "ERROR: sh-elf-gccgo not found! Go support was not built."
+            echo "Checking what was built:"
+            ls -la $TOOLCHAIN_PATH/sh-elf/bin/
+            exit 1
+          fi
+          echo "✅ sh-elf-gccgo found"
+          
+          # Create binutils symlinks if missing
+          # dc-chain sometimes doesn't create these in sh-elf/bin/
+          echo "Creating binutils symlinks..."
+          BIN_DIR="$TOOLCHAIN_PATH/sh-elf/bin"
+          TOOLS_DIR="$TOOLCHAIN_PATH/sh-elf/sh-elf/bin"
+          for tool in ar as ld ld.bfd nm objcopy objdump ranlib readelf size strings strip; do
+            if [ ! -f "$BIN_DIR/sh-elf-$tool" ] && [ -f "$TOOLS_DIR/$tool" ]; then
+              ln -sf "../sh-elf/bin/$tool" "$BIN_DIR/sh-elf-$tool"
+              echo "  Created symlink: sh-elf-$tool -> ../sh-elf/bin/$tool"
+            fi
+          done
+          
+          # Create sh-elf-ld -> sh-elf-ld.bfd if ld doesn't exist but ld.bfd does
+          if [ ! -f "$BIN_DIR/sh-elf-ld" ] && [ -f "$BIN_DIR/sh-elf-ld.bfd" ]; then
+            ln -sf "sh-elf-ld.bfd" "$BIN_DIR/sh-elf-ld"
+            echo "  Created symlink: sh-elf-ld -> sh-elf-ld.bfd"
+          fi
+          
+          # Create libc.a symlink if missing (newlib's libg.a is the debug C library)
+          LIB_DIR="$TOOLCHAIN_PATH/sh-elf/sh-elf/lib"
+          if [ ! -f "$LIB_DIR/libc.a" ] && [ -f "$LIB_DIR/libg.a" ]; then
+            ln -sf libg.a "$LIB_DIR/libc.a"
+            echo "  Created symlink: libc.a -> libg.a"
+          fi
+          
+          # Also check m4-single-only directory
+          M4_LIB_DIR="$LIB_DIR/m4-single-only"
+          if [ -d "$M4_LIB_DIR" ]; then
+            if [ ! -f "$M4_LIB_DIR/libc.a" ] && [ -f "$M4_LIB_DIR/libg.a" ]; then
+              ln -sf libg.a "$M4_LIB_DIR/libc.a"
+              echo "  Created symlink: m4-single-only/libc.a -> libg.a"
+            fi
+          fi
+          # Create GCC symlinks if missing (gcc-15.1.0 -> gcc, etc.)
+          GCC_VER="${{ steps.version.outputs.gcc_version }}"
+          if [ ! -f "$BIN_DIR/sh-elf-gcc" ] && [ -f "$BIN_DIR/sh-elf-gcc-$GCC_VER" ]; then
+            ln -sf "sh-elf-gcc-$GCC_VER" "$BIN_DIR/sh-elf-gcc"
+            echo "  Created symlink: sh-elf-gcc -> sh-elf-gcc-$GCC_VER"
+          fi
+          if [ ! -f "$BIN_DIR/sh-elf-g++" ] && [ -f "$BIN_DIR/sh-elf-c++" ]; then
+            ln -sf "sh-elf-c++" "$BIN_DIR/sh-elf-g++"
+            echo "  Created symlink: sh-elf-g++ -> sh-elf-c++"
+          fi
+          echo "✅ Symlinks created"
+          
+          # Verify all critical binutils tools exist
+          echo "Verifying binutils tools..."
+          MISSING=0
+          for tool in ar as ld nm objcopy objdump ranlib readelf strip; do
+            if [ ! -f "$BIN_DIR/sh-elf-$tool" ]; then
+              echo "  ❌ sh-elf-$tool missing"
+              MISSING=1
+            else
+              echo "  ✅ sh-elf-$tool"
+            fi
+          done
+          if [ $MISSING -eq 1 ]; then
+            echo "ERROR: Some binutils tools are missing!"
+            ls -la $BIN_DIR/
+            ls -la $TOOLS_DIR/
+            exit 1
+          fi
+          
+          # Verify libc.a exists
+          if [ ! -f "$LIB_DIR/libc.a" ]; then
+            echo "ERROR: libc.a not found in $LIB_DIR"
+            ls -la $LIB_DIR/
+            exit 1
+          fi
+          echo "✅ libc.a verified"
+          
+          # Clean up dc-chain build artifacts to save space
+          echo "Cleaning up dc-chain build artifacts..."
+          make clean distclean
+          echo "✅ dc-chain cleaned"
+        shell: bash
+
+      # Set up KOS environment and build KOS
+      - name: Set up KOS environment and build
+        run: |
+          cd $TOOLCHAIN_PATH/kos
+          cp doc/environ.sh.sample environ.sh
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          export LIBRARY_PATH="/usr/local/lib"
+          export CPATH="/usr/local/include"
+          
+          # Build KOS with error checking
+          echo "Building KallistiOS..."
+          if ! make; then
+            echo "KOS build failed!"
+            exit 1
+          fi
+          echo "✅ KallistiOS built successfully"
+        shell: bash
+
+      # Build kos-ports
+      - name: Build kos-ports
+        run: |
+          cd $TOOLCHAIN_PATH
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          export LIBRARY_PATH="/usr/local/lib"
+          export CPATH="/usr/local/include"
+          
+          echo "Current directory: $(pwd)"
+          echo "TOOLCHAIN_PATH: $TOOLCHAIN_PATH"
+          echo ""
+          
+          echo "Cloning kos-ports..."
+          git clone --recursive https://github.com/KallistiOS/kos-ports kos-ports
+          
+          echo ""
+          echo "=== Directory structure after clone ==="
+          ls -la $TOOLCHAIN_PATH/
+          echo ""
+          
+          # Verify kos-ports was cloned
+          if [ ! -d "$TOOLCHAIN_PATH/kos-ports" ]; then
+            echo "❌ ERROR: kos-ports directory not found after clone!"
+            exit 1
+          fi
+          echo "✅ kos-ports cloned to $TOOLCHAIN_PATH/kos-ports"
+          
+          # Disable known broken builds BEFORE building
+          echo "Disabling known broken builds..."
+          chmod +x $GITHUB_WORKSPACE/scripts/disable-broken-builds.sh
+          $GITHUB_WORKSPACE/scripts/disable-broken-builds.sh $TOOLCHAIN_PATH
+          
+          echo "Building kos-ports..."
+          cd kos-ports
+          if ! ./utils/build-all.sh; then
+            echo "❌ kos-ports build failed!"
+            exit 1
+          fi
+          echo "✅ kos-ports build completed successfully"
+          
+          echo ""
+          echo "=== kos-ports lib directory ==="
+          ls -la $TOOLCHAIN_PATH/kos-ports/lib/ || echo "lib directory not found"
+        shell: bash
+
+      # Install Go and godc tool
+      - name: Install Go and godc
+        run: |
+          echo "Installing latest Go..."
+          # Remove any pre-installed Go
+          sudo rm -rf /usr/local/go
+          
+          # Download and install latest Go
+          GO_VERSION=$(curl -s https://go.dev/VERSION?m=text | head -1)
+          echo "Latest Go version: $GO_VERSION"
+          curl -LO "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz"
+          sudo tar -C /usr/local -xzf "${GO_VERSION}.linux-amd64.tar.gz"
+          rm "${GO_VERSION}.linux-amd64.tar.gz"
+          
+          # Set up Go environment
+          export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
+          echo "PATH=/usr/local/go/bin:$HOME/go/bin:$PATH" >> $GITHUB_ENV
+          
+          # Verify Go installation
+          go version
+          
+          echo "Installing godc tool..."
+          go install github.com/drpaneas/godc@latest
+          
+          # Verify godc installation
+          if command -v godc &> /dev/null; then
+            echo "✅ godc installed successfully"
+            godc --help || true
+          else
+            echo "⚠️ godc not found in PATH, checking ~/go/bin..."
+            ls -la ~/go/bin/ || echo "~/go/bin not found"
+          fi
+        shell: bash
+
+      # Build libgodc (Go bindings for Dreamcast)
+      - name: Build libgodc
+        run: |
+          cd $TOOLCHAIN_PATH
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          export LIBRARY_PATH="/usr/local/lib"
+          export CPATH="/usr/local/include"
+          
+          echo "Cloning libgodc..."
+          git clone https://github.com/drpaneas/libgodc.git libgodc
+          
+          echo "Building libgodc..."
+          cd libgodc
+          if ! make; then
+            echo "❌ libgodc build failed!"
+            exit 1
+          fi
+          echo "✅ libgodc build completed successfully"
+          
+          echo ""
+          echo "=== libgodc directory contents ==="
+          ls -la $TOOLCHAIN_PATH/libgodc/
+        shell: bash
+
+      # Build KOS examples
+      - name: Build KOS examples
+        run: |
+          cd $TOOLCHAIN_PATH/kos
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          export LIBRARY_PATH="/usr/local/lib"
+          export CPATH="/usr/local/include"
+          
+          echo "Building KallistiOS examples..."
+          cd examples
+          if ! make; then
+            echo "❌ KallistiOS examples build failed!"
+            exit 1
+          fi
+          echo "✅ KallistiOS examples build completed successfully"
+        shell: bash
+
+      # Run smoke test before packaging
+      - name: Run smoke test
+        run: |
+          source $TOOLCHAIN_PATH/kos/environ.sh
+          chmod +x $GITHUB_WORKSPACE/scripts/smoke-test.sh
+          $GITHUB_WORKSPACE/scripts/smoke-test.sh $TOOLCHAIN_PATH
+        shell: bash
+
+      # Package the toolchain
+      - name: Package toolchain
+        run: |
+          cd $TOOLCHAIN_PATH
+          GCC_VERSION="${{ steps.version.outputs.gcc_version }}"
+          KOS_VERSION="${{ steps.version.outputs.kos_version }}"
+          
+          echo "=== Pre-packaging directory listing ==="
+          ls -la $TOOLCHAIN_PATH/
+          echo ""
+          
+          # Verify all components exist before packaging
+          echo "Verifying toolchain components..."
+          for dir in sh-elf kos kos-ports libgodc; do
+            if [ ! -d "$dir" ]; then
+              echo "❌ ERROR: $dir directory not found!"
+              echo "Directory contents:"
+              ls -la
+              exit 1
+            fi
+            SIZE=$(du -sh "$dir" | cut -f1)
+            echo "  ✅ $dir exists ($SIZE)"
+          done
+          echo ""
+          
+          # Copy license files into the package
+          cp $GITHUB_WORKSPACE/LICENSE kos/ || true
+          cp $GITHUB_WORKSPACE/NOTICE kos/ || true
+          
+          # Patch environ.sh for relocatable installation
+          echo "Patching environ.sh for relocatable installation..."
+          chmod +x $GITHUB_WORKSPACE/scripts/patch-environ.sh
+          $GITHUB_WORKSPACE/scripts/patch-environ.sh kos/
+          
+          # Show the patched environ.sh
+          echo ""
+          echo "=== Patched environ.sh (first 50 lines) ==="
+          head -50 kos/environ.sh
+          echo ""
+          
+          # Verify environ.sh was patched (should contain auto-detect logic)
+          if ! grep -q "_kos_get_script_dir" kos/environ.sh; then
+            echo "❌ ERROR: environ.sh was not properly patched!"
+            echo "Full contents:"
+            cat kos/environ.sh
+            exit 1
+          fi
+          echo "✅ environ.sh patched for auto-detection"
+          
+          # Create tarball with complete toolchain build (everything included)
+          TARBALL="dreamcast-toolchain-gcc${GCC_VERSION}-kos${KOS_VERSION#v}-linux-x86_64-ubuntu22.tar.gz"
+          
+          echo ""
+          echo "Creating tarball: $TARBALL"
+          echo "Contents: sh-elf/ kos/ kos-ports/ libgodc/"
+          tar czf "$TARBALL" sh-elf/ kos/ kos-ports/ libgodc/
+          
+          # Show tarball size
+          TARBALL_SIZE=$(du -h "$TARBALL" | cut -f1)
+          echo "Tarball size: $TARBALL_SIZE"
+          
+          # Verify tarball contents - list once to a temp file to avoid multiple decompressions
+          echo ""
+          echo "=== Verifying tarball contents ==="
+          TARBALL_LIST=$(mktemp)
+          tar tzf "$TARBALL" > "$TARBALL_LIST"
+          
+          echo "Top-level directories:"
+          awk -F'/' 'NF==2 && $2=="" {print}' "$TARBALL_LIST" | head -10
+          
+          echo ""
+          echo "Checking all directories are present:"
+          for dir in sh-elf kos kos-ports libgodc; do
+            COUNT=$(awk -v d="^${dir}/" '$0 ~ d {c++} END {print c+0}' "$TARBALL_LIST")
+            if [ "$COUNT" -gt 0 ]; then
+              echo "  ✅ $dir/ found ($COUNT files)"
+            else
+              echo "  ❌ $dir/ NOT FOUND in tarball!"
+              rm -f "$TARBALL_LIST"
+              exit 1
+            fi
+          done
+          rm -f "$TARBALL_LIST"
+          
+          # Verify environ.sh is in the tarball
+          echo ""
+          echo "=== Verifying environ.sh in tarball ==="
+          if tar tzf "$TARBALL" | grep -q "kos/environ.sh"; then
+            echo "  ✅ kos/environ.sh is in the tarball"
+          else
+            echo "  ⚠️ Warning: kos/environ.sh not found in tarball listing"
+          fi
+          
+          sha256sum "$TARBALL" > "${TARBALL}.sha256"
+          
+          mkdir -p $GITHUB_WORKSPACE/release
+          mv "$TARBALL" "$GITHUB_WORKSPACE/release/"
+          mv "${TARBALL}.sha256" "$GITHUB_WORKSPACE/release/"
+          
+          echo ""
+          echo "✅ Packaging complete - ready for release!"
+        shell: bash
+
+      # Upload Release Asset
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: "Dreamcast Toolchain - GCC ${{ steps.version.outputs.gcc_version }} + KallistiOS ${{ steps.version.outputs.kos_version }}"
+          files: |
+            release/dreamcast-toolchain-*.tar.gz
+            release/dreamcast-toolchain-*.sha256
+          body: |
+            ## Dreamcast Toolchain - GCC ${{ steps.version.outputs.gcc_version }}
+            
+            Pre-built cross-compilation toolchain for Sega Dreamcast development.
+            
+            ### Included Components
+            - **GCC**: ${{ steps.version.outputs.gcc_version }} with C, C++, and Go support
+            - **KallistiOS**: ${{ steps.version.outputs.kos_version }} ([release](https://github.com/KallistiOS/KallistiOS/releases/tag/${{ steps.version.outputs.kos_version }}))
+            - **kos-ports**: Pre-built ports and libraries
+            - **libgodc**: Go bindings for Dreamcast ([source](https://github.com/drpaneas/libgodc))
+            - **KOS examples**: Built example programs
+            - **Binutils**: Latest compatible version from dc-chain
+            
+            ### Installation
+            ```bash
+            # Extract the tarball
+            tar xzf dreamcast-toolchain-gcc${{ steps.version.outputs.gcc_version }}-kos${{ steps.version.outputs.kos_version_short }}-linux-x86_64-ubuntu22.tar.gz
+            
+            # Add toolchain to PATH
+            export PATH="$PWD/sh-elf/bin:$PWD/kos/utils/build_wrappers:$PATH"
+            
+            # Verify installation
+            sh-elf-gcc --version
+            kos-cc --version
+            ```
+            
+            ### License Information
+            This distribution includes GPL v3 (GCC, Binutils) and BSD-licensed (KallistiOS, libgodc) components.
+            
+            **Source Code** (GPL compliance):
+            - GCC: https://ftp.gnu.org/gnu/gcc/gcc-${{ steps.version.outputs.gcc_version }}/
+            - KallistiOS: https://github.com/KallistiOS/KallistiOS
+            - libgodc: https://github.com/drpaneas/libgodc
+            - Build scripts: This repository
+            
+            See LICENSE and NOTICE files included in the distribution for complete details.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload Build Artifacts
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreamcast-toolchain-linux-x86_64-ubuntu22
+          path: |
+            release/dreamcast-toolchain-*.tar.gz
+            release/dreamcast-toolchain-*.sha256
+          retention-days: 30
+
